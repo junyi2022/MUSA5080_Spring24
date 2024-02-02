@@ -64,7 +64,7 @@ You will need a "key" to access the Census API. You can find one at [their websi
 Paste it into the code block below:
 
 ```{r load_key, warning = FALSE, eval = FALSE}
-census_api_key("YOUR KEY GOES HERE", overwrite = TRUE)
+census_api_key("99853947195b1047ecbe4c144bbeebb8446e1da5", overwrite = TRUE)
 ```
 
 ## Load census data dictionaries
@@ -223,6 +223,14 @@ Use the `mutate` command to create three new variables in your allACS data set. 
 
 If you want, you can put some new variables in your ACS data sets by adding to `acs_vars` - just make sure you put something in the `rename` commands we used earlier if you want to have intelligible variable names.
 
+```{r do_exercise, cache = TRUE}
+allACS <- allACS %>%
+  mutate(change_total_pop = total_pop.2020-total_pop.2016, 
+         change_percent_pop = (total_pop.2020-total_pop.2016)/total_pop.2016,
+         change_percent_HU = (total_HU.2020-total_HU.2016)/total_HU.2016)
+
+```
+
 # Summarizing Census Data
 
 ## Exploring central tendancies
@@ -262,6 +270,7 @@ Let's start making a simple ggplot. This first line of code creates a blank 'can
 ```{r ggplot, warning=FALSE, message = FALSE}
 
 ggplot(allACS)
+#ggplot(data=<DATA>) make a canvas
 
 ```
 
@@ -295,7 +304,8 @@ ggplot(allACS)+
     title = "Change in Philadelphia HH median income by tract, 2016-2020",
     caption = "Data: US Census Bureau, ACS 5-year estimates",
     x="Change in Med HH Income (2020 dollars)", 
-       y="Number of tracts")
+       y="Number of tracts")+
+  theme_minimal() #try a theme
   
 ```
 
@@ -368,7 +378,9 @@ ggplot(allACS)+
     caption = "Data: US Census Bureau, ACS 5-year estimates",
     x="Change in Med HH Income (2020 dollars)", 
        y="Number of tracts")+
-  facet_wrap(~mtAiry, scales = "free")
+  facet_wrap(~mtAiry, scales = "free")+ #2 plots
+  theme_minimal()
+
   
 ```
 
@@ -384,16 +396,17 @@ What do you think this line represents? How does it help us interpret these poin
 
 ```{r ggplot_point1, warning = FALSE, cache = TRUE}
 ggplot(allACS)+
-  geom_point(aes(x =med_HH_Income.2016 * 1.08, 
+  geom_point(aes(x =med_HH_Income.2016 * 1.08, # 1.08 is inflation factor
                  y = med_HH_Income.2020,
                  color = mtAiry))+
-  geom_abline(intercept = 0, slope = 1)+
+  geom_abline(intercept = 0, slope = 1)+ # add slope
   labs(
     title = "2020 Median HH Income as a Function of 2016 Median HH Income",
     subtitle = "All figures in 2020 dollars",
     caption = "Data: US Census Bureau, ACS 5-year estimates",
     x="Med HH Income 2016 ($)", 
-    y="Med HH Income 2020 ($)")
+    y="Med HH Income 2020 ($)")+
+  theme_minimal()
   
 ```
 
@@ -419,7 +432,8 @@ ggplot(allACS)+
     subtitle = "All figures in 2020 dollars",
     caption = "Data: US Census Bureau, ACS 5-year estimates",
     x="Pct. Residents Identifying as 'White Only'", 
-    y="Med HH Income 2020 ($)")
+    y="Med HH Income 2020 ($)")+
+  theme_minimal()
   
 ```
 
@@ -492,7 +506,7 @@ ggplot()+
     title = "Percentage of those identifying as 'white only' by tract",
     subtitle = "",
     caption = "Data: US Census Bureau, ACS 5-year estimates")+
-  theme_minimal()
+  theme_void()
   
 ```
 

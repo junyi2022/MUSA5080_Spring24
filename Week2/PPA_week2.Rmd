@@ -1,0 +1,18 @@
+---
+title: "PPA_week2"
+author: "Junyi Yang"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+date: "2024-01-26"
+---
+
+
+# Introduction to TidyCensus
+
+```{r installpackages, messageFALSE}
+1+1
+```
+
