@@ -11,6 +11,7 @@ editor_options:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+lintr::lint_dir()
 ```
 
 ## Why Start With Indicators?
@@ -73,7 +74,7 @@ source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-L
 ```
 
 ```{r load_key, warning = FALSE, eval = FALSE}
-census_api_key("YOUR KEY GOES HERE", overwrite = TRUE)
+census_api_key("99853947195b1047ecbe4c144bbeebb8446e1da5", overwrite = TRUE)
 ```
 
 ### Use `get_acs()` to get 2016 ACS data
@@ -187,6 +188,18 @@ A2 <-
 # Your Turn
 Take a few minutes now and experiment with mapping settings above.  
 
+```{r}
+A3 <- 
+  ggplot() +
+  geom_sf(data = totalPop16, aes(fill = estimate)) +
+  scale_fill_distiller(palette = "BuGn", direction = 1,
+                       breaks = pretty_breaks()) +
+    labs(title = "2016 Population Estimates, Philadelphia",
+       caption = "Data source: 2016 3-year ACS, US Census Bureau",
+       fill = "ACS estimate") + 
+  theme_void()
+
+```
 
 
 ### Working with ACS Data
@@ -270,7 +283,7 @@ this lab.
 
 ```{r}
 
-allTracts <- rbind(tracts16,tracts20)
+allTracts <- rbind(tracts16,tracts20) # add rows together
 ```
 
 ### Wrangling Transit Open Data
@@ -290,7 +303,7 @@ septaStops <-
      Broad_St %>%
       mutate(Line ="Broad_St") %>%
       dplyr::select(Station, Line)) %>%
-  st_transform(st_crs(tracts16))  
+  st_transform(st_crs(tracts16))  # set crs to be the same as the other object
 ```
 
 Let's visualize it

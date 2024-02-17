@@ -1,0 +1,529 @@
+---
+title: "Transit-Oriented Development(TOD)'s Influence on Census Data"
+author: "Junyi Yang"
+date: "Feb 16, 2024"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: flatly
+    code_folding: hide
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+lintr::lint_dir()
+```
+
+### Motivation
+Transit-oriented development (TOD) can be one of the major drivers of development in urban areas. This project uses Boston, Suffolk County as an example and focuses on analyzing whether the TOD impacts the census composition in the city, and in what aspects. The census data that this project focuses on are total population, percentage of white population, percentage of poverty, percentage of bachelor's degree, and median rent. Besides, this project will also compare these changes over time by using both the 2009 and 2021 ACS 5-year census data.
+
+### Analysis Preparation
+1. Load the packages for this project.
+```{r setup_packages, warning = FALSE, message = FALSE}
+# Load Libraries
+
+library(tidyverse)
+library(tidycensus)
+library(sf)
+library(kableExtra)
+library(tmap)
+library(scales)
+library(gridExtra)
+library(grid)
+library(knitr)
+library(rmarkdown)
+library(RColorBrewer)
+library(classInt)
+
+options(scipen=999)
+options(tigris_class = "sf")
+
+source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/functions.r")
+
+```
+
+2. Load the census api key for census analysis.
+```{r load_key, warning = FALSE, message = FALSE, eval = FALSE}
+census_api_key("99853947195b1047ecbe4c144bbeebb8446e1da5", overwrite = TRUE)
+```
+3. Load census data dictionaries
+
+```{r load_census_dic, warning = FALSE, cache = TRUE}
+
+acs_variable_list.2009 <- load_variables(2009, # year
+                                         "acs5", # five year ACS estimates
+                                         cache = TRUE)
+
+acs_variable_list.2021 <- load_variables(2021, # year
+                                         "acs5", # five year ACS estimates
+                                         cache = TRUE)
+```
+
+### Get the 2009 census data
+
+```{r get_09_data, cache = TRUE, eval = FALSE, message = FALSE, warning = FALSE}
+# show the code but not run 
+tracts09 <- 
+  get_acs(geography = "tract",
+          variables = c("B25026_001E", # Total population in occupied housing units
+                        "B02001_002E", # People describing themselves as "white alone"
+                        "B15001_050E", # Total Female 18 to 24 years with Bachelor's degree
+                        "B15001_009E", # Total Male 18 to 24 years with Bachelor's degree
+                        "B19013_001E", # Median household income in the past 12 month (in 2021 inflation adjusted dollars)
+                        "B25058_001E", # Median contract rent
+                        "B06012_002E"), # Below 100 percent of the poverty level
+          year=2009, state=25, # Massachusetts
+          county=025, # Suffolk County
+          geometry=TRUE, output="wide") %>% 
+  st_transform(crs = st_crs(26986)) %>% # NAD83 / Massachusetts Mainland (Meters)
+  rename(TotalPop = B25026_001E, 
+         Whites = B02001_002E,
+         FemaleBachelors = B15001_050E, 
+         MaleBachelors = B15001_009E,
+         MedHHInc = B19013_001E, 
+         MedRent = B25058_001E,
+         TotalPoverty = B06012_002E) %>%
+  dplyr::select(-NAME, -starts_with("B")) %>%
+  mutate(pctWhite = ifelse(TotalPop > 0, Whites / TotalPop,0),
+         pctBachelors = ifelse(TotalPop > 0, ((FemaleBachelors + MaleBachelors) / TotalPop),0),
+         pctPoverty = ifelse(TotalPop > 0, TotalPoverty / TotalPop, 0),
+         year = "2009",
+         area_sqFt = (as.numeric(st_area(.))),
+         Popden = ifelse(TotalPop > 0, TotalPop / (area_sqFt / 27878400), 0)) %>%
+  dplyr::select(-Whites, -FemaleBachelors, -MaleBachelors, -TotalPoverty) 
+
+```
+
+```{r get_09_data2, cache = TRUE, include = FALSE, message = FALSE, warning = FALSE}
+# not show but run the code
+tracts09 <- 
+  get_acs(geography = "tract",
+          variables = c("B25026_001E", # Total population in occupied housing units
+                        "B02001_002E", # People describing themselves as "white alone"
+                        "B15001_050E", # Total Female 18 to 24 years with Bachelor's degree
+                        "B15001_009E", # Total Male 18 to 24 years with Bachelor's degree
+                        "B19013_001E", # Median household income in the past 12 month (in 2021 inflation adjusted dollars)
+                        "B25058_001E", # Median contract rent
+                        "B06012_002E"), # Below 100 percent of the poverty level
+          year=2009, state=25, # Massachusetts
+          county=025, # Suffolk County
+          geometry=TRUE, output="wide") %>% 
+  st_transform(crs = st_crs(26986)) %>% # NAD83 / Massachusetts Mainland (Meters)
+  rename(TotalPop = B25026_001E, 
+         Whites = B02001_002E,
+         FemaleBachelors = B15001_050E, 
+         MaleBachelors = B15001_009E,
+         MedHHInc = B19013_001E, 
+         MedRent = B25058_001E,
+         TotalPoverty = B06012_002E) %>%
+  dplyr::select(-NAME, -starts_with("B")) %>%
+  mutate(pctWhite = ifelse(TotalPop > 0, Whites / TotalPop,0),
+         pctBachelors = ifelse(TotalPop > 0, ((FemaleBachelors + MaleBachelors) / TotalPop),0),
+         pctPoverty = ifelse(TotalPop > 0, TotalPoverty / TotalPop, 0),
+         year = "2009",
+         area_sqFt = (as.numeric(st_area(.))),
+         Popden = ifelse(TotalPop > 0, TotalPop / (area_sqFt / 27878400), 0)) %>%
+  dplyr::select(-Whites, -FemaleBachelors, -MaleBachelors, -TotalPoverty) 
+
+```
+
+
+
+### Get the 2021 census data
+
+```{r get_21_data, cache = TRUE, eval = FALSE, message = FALSE, warning = FALSE}
+# show the code but not run
+tracts21 <- 
+  get_acs(geography = "tract",
+          variables = c("B25026_001E", # Total population in occupied housing units
+                        "B02001_002E", # People describing themselves as "white alone"
+                        "B15001_050E", # Total Female 18 to 24 years with Bachelor's degree
+                        "B15001_009E", # Total Male 18 to 24 years with Bachelor's degree
+                        "B19013_001E", # Median household income in the past 12 month (in 2021 inflation adjusted dollars)
+                        "B25058_001E", # Median contract rent
+                        "B06012_002E"), # Below 100 percent of the poverty level
+          year=2021, state=25, # Massachusetts
+          county=025, # Suffolk County
+          geometry=TRUE, output="wide") %>% 
+  st_transform(crs = st_crs(26986)) %>% # NAD83 / Massachusetts Mainland (Meters)
+  rename(TotalPop = B25026_001E, 
+         Whites = B02001_002E,
+         FemaleBachelors = B15001_050E, 
+         MaleBachelors = B15001_009E,
+         MedHHInc = B19013_001E, 
+         MedRent = B25058_001E,
+         TotalPoverty = B06012_002E) %>%
+  dplyr::select(-NAME, -starts_with("B")) %>%
+  mutate(pctWhite = ifelse(TotalPop > 0, Whites / TotalPop,0),
+         pctBachelors = ifelse(TotalPop > 0, ((FemaleBachelors + MaleBachelors) / TotalPop),0),
+         pctPoverty = ifelse(TotalPop > 0, TotalPoverty / TotalPop, 0),
+         year = "2021",
+         area_sqFt = (as.numeric(st_area(.))),
+         Popden = ifelse(TotalPop > 0, TotalPop / (area_sqFt / 27878400), 0)) %>%
+  dplyr::select(-Whites, -FemaleBachelors, -MaleBachelors, -TotalPoverty) 
+
+```
+
+```{r get_21_data2, cache = TRUE, include = FALSE, message = FALSE, warning = FALSE}
+# not show but run the code
+tracts21 <- 
+  get_acs(geography = "tract",
+          variables = c("B25026_001E", # Total population in occupied housing units
+                        "B02001_002E", # People describing themselves as "white alone"
+                        "B15001_050E", # Total Female 18 to 24 years with Bachelor's degree
+                        "B15001_009E", # Total Male 18 to 24 years with Bachelor's degree
+                        "B19013_001E", # Median household income in the past 12 month (in 2021 inflation adjusted dollars)
+                        "B25058_001E", # Median contract rent
+                        "B06012_002E"), # Below 100 percent of the poverty level
+          year=2021, state=25, # Massachusetts
+          county=025, # Suffolk County
+          geometry=TRUE, output="wide") %>% 
+  st_transform(crs = st_crs(26986)) %>% # NAD83 / Massachusetts Mainland (Meters)
+  rename(TotalPop = B25026_001E, 
+         Whites = B02001_002E,
+         FemaleBachelors = B15001_050E, 
+         MaleBachelors = B15001_009E,
+         MedHHInc = B19013_001E, 
+         MedRent = B25058_001E,
+         TotalPoverty = B06012_002E) %>%
+  dplyr::select(-NAME, -starts_with("B")) %>%
+  mutate(pctWhite = ifelse(TotalPop > 0, Whites / TotalPop,0),
+         pctBachelors = ifelse(TotalPop > 0, ((FemaleBachelors + MaleBachelors) / TotalPop),0),
+         pctPoverty = ifelse(TotalPop > 0, TotalPoverty / TotalPop, 0),
+         year = "2021",
+         area_sqFt = (as.numeric(st_area(.))),
+         Popden = ifelse(TotalPop > 0, TotalPop / (area_sqFt / 27878400), 0)) %>%
+  dplyr::select(-Whites, -FemaleBachelors, -MaleBachelors, -TotalPoverty) 
+
+```
+
+### Combine the 2009 and 2021 Census Data
+
+```{r combine_years, cache = TRUE, message = FALSE, warning = FALSE}
+
+allTracts <- rbind(tracts09, tracts21) %>% # add rows together
+mutate(MedRent.inf = ifelse(year == "2009", MedRent * 1.26, MedRent)) 
+```
+
+At first, we can have a look at the population density change in Suffolk County between 2009 and 2021.
+
+```{r 09-density, cache = TRUE, message = FALSE, warning = FALSE}
+tm_shape(tracts09) +
+  tm_polygons(fill = "Popden", style = "quantile", border.col = "#f7f7f7", border.lwd = 0.5, n=6,title = "Population Density (n/mile)", palette = "BuPu" )+
+  tm_layout(frame = FALSE,legend.frame = FALSE)+
+  tm_title("2009 Population Density in Suffolk County") +
+  tm_credits("Data source: 2009 5-year ACS, US Census Bureau")
+
+```
+
+```{r 21-density, cache = TRUE, message = FALSE, warning = FALSE}
+tm_shape(tracts21) +
+  tm_polygons(fill = "Popden", style = "quantile", border.col = "#f7f7f7", border.lwd = 0.5, n=6,title = "Population Density (n/mile)", palette = "BuPu" )+
+  tm_layout(frame = FALSE,legend.frame = FALSE)+
+  tm_title("2021 Population Density in Suffolk County") +
+  tm_credits("Data source: 2021 5-year ACS, US Census Bureau")
+
+```
+
+Then, we can have a look at the five categories that we want to focus on.
+
+1. Total population change in Suffolk County between 2009 and 2021:
+
+```{r both-total, cache = TRUE, message = FALSE, warning = FALSE}
+
+# Calculate quantiles for class breaks
+breaks_quantiles <- classIntervals(allTracts$TotalPop, n = 6, style = "quantile")
+
+# Define colors using ColorBrewer palette - matching the number of breaks
+colors <- brewer.pal(n = 6, name = "BuPu")
+
+# Generate custom labels showing the range of each class
+labels <- paste0(formatC(breaks_quantiles$brks[-length(breaks_quantiles$brks)], format = "f", digits = 0, big.mark = ","), 
+                 " - ", 
+                 formatC(breaks_quantiles$brks[-1], format = "f", digits = 0, big.mark = ","))
+
+ggplot() +
+  geom_sf(data = allTracts, aes(fill = cut(TotalPop, breaks = breaks_quantiles$brks, include.lowest = TRUE)), color = "lightgrey") +
+  scale_fill_manual(values = colors,
+                     name = "Population",
+                     labels = labels) +  # Use custom range labels
+  facet_wrap(~year) + 
+  labs(title = "Total Population of Census Tracts in Suffolk County", subtitle = "", caption = "Data source: 5-year ACS, US Census Bureau") +
+  theme_void()
+```
+
+2. Percent of white population change in Suffolk County between 2009 and 2021:
+
+```{r both-white, cache = TRUE, message = FALSE, warning = FALSE}
+
+# Calculate quantiles for class breaks
+breaks_quantiles <- classIntervals(allTracts$pctWhite, n = 6, style = "quantile")
+
+# Define colors using ColorBrewer palette - matching the number of breaks
+colors <- brewer.pal(n = 6, name = "BuPu")
+
+# Generate custom labels showing the range of each class
+labels <- paste0(formatC(breaks_quantiles$brks[-length(breaks_quantiles$brks)], format = "f", digits = 2, big.mark = ","), 
+                 " - ", 
+                 formatC(breaks_quantiles$brks[-1], format = "f", digits = 2, big.mark = ","))
+
+ggplot() +
+  geom_sf(data = allTracts, aes(fill = cut(pctWhite, breaks = breaks_quantiles$brks, include.lowest = TRUE)), color = "lightgrey") +
+  scale_fill_manual(values = colors,
+                     name = "Percent of White",
+                     labels = labels) +  # Use custom range labels
+  facet_wrap(~year) + 
+  labs(title = "Percent of White Population of Census Tracts in Suffolk County", subtitle = "", caption = "Data source: 5-year ACS, US Census Bureau") +
+  theme_void()
+```
+
+3. Percent of poverty change in Suffolk County between 2009 and 2021:
+
+```{r both-poverty, cache = TRUE, message = FALSE, warning = FALSE}
+
+# Calculate quantiles for class breaks
+breaks_quantiles <- classIntervals(allTracts$pctPoverty, n = 4, style = "quantile")
+
+# Define colors using ColorBrewer palette - matching the number of breaks
+colors <- brewer.pal(n = 4, name = "BuPu")
+
+# Generate custom labels showing the range of each class
+labels <- paste0(formatC(breaks_quantiles$brks[-length(breaks_quantiles$brks)], format = "f", digits = 2, big.mark = ","), 
+                 " - ", 
+                 formatC(breaks_quantiles$brks[-1], format = "f", digits = 2, big.mark = ","))
+
+ggplot() +
+  geom_sf(data = allTracts, aes(fill = cut(pctPoverty, breaks = breaks_quantiles$brks, include.lowest = TRUE)), color = "lightgrey") +
+  scale_fill_manual(values = colors,
+                     name = "Percent of Poverty",
+                     labels = labels) +  # Use custom range labels
+  facet_wrap(~year) + 
+  labs(title = "Percent of Poverty of Census Tracts in Suffolk County", subtitle = "", caption = "Data source: 5-year ACS, US Census Bureau") +
+  theme_void()
+```
+
+4. Percent of bachelor degree change in Suffolk County between 2009 and 2021:
+
+```{r both-bachelor, cache = TRUE, message = FALSE, warning = FALSE}
+
+# Calculate quantiles for class breaks
+breaks_quantiles <- classIntervals(allTracts$pctBachelors, n = 3, style = "quantile")
+
+# Define colors using ColorBrewer palette - matching the number of breaks
+colors <- brewer.pal(n = 3, name = "BuPu")
+
+# Generate custom labels showing the range of each class
+labels <- paste0(formatC(breaks_quantiles$brks[-length(breaks_quantiles$brks)], format = "f", digits = 2, big.mark = ","), 
+                 " - ", 
+                 formatC(breaks_quantiles$brks[-1], format = "f", digits = 2, big.mark = ","))
+
+ggplot() +
+  geom_sf(data = allTracts, aes(fill = cut(pctBachelors, breaks = breaks_quantiles$brks, include.lowest = TRUE)), color = "lightgrey") +
+  scale_fill_manual(values = colors,
+                     name = "Percent of Bachelor Degree",
+                     labels = labels) +  # Use custom range labels
+  facet_wrap(~year) + 
+  labs(title = "Percent of Bachelor Degree of Census Tracts in Suffolk County", subtitle = "", caption = "Data source: 5-year ACS, US Census Bureau") +
+  theme_void()
+```
+
+5. Median rent change in Suffolk County between 2009 and 2021: (Inflation adjusted)
+
+```{r both-rent, cache = TRUE, message = FALSE, warning = FALSE}
+
+# Calculate quantiles for class breaks
+breaks_quantiles <- classIntervals(allTracts$MedRent.inf, n = 6, style = "quantile")
+
+# Define colors using ColorBrewer palette - matching the number of breaks
+colors <- brewer.pal(n = 6, name = "BuPu")
+
+# Generate custom labels showing the range of each class
+labels <- paste0(formatC(breaks_quantiles$brks[-length(breaks_quantiles$brks)], format = "f", digits = 2, big.mark = ","), 
+                 " - ", 
+                 formatC(breaks_quantiles$brks[-1], format = "f", digits = 2, big.mark = ","))
+
+ggplot() +
+  geom_sf(data = allTracts, aes(fill = cut(MedRent.inf, breaks = breaks_quantiles$brks, include.lowest = TRUE)), color = "lightgrey") +
+  scale_fill_manual(values = colors,
+                     name = "Median Rent",
+                     labels = labels) +  # Use custom range labels
+  facet_wrap(~year) + 
+  labs(title = "Median Rent of Census Tracts in Suffolk County", subtitle = "", caption = "Data source: 5-year ACS, US Census Bureau") +
+  theme_void()
+```
+
+### Wrangling Transit Open Data
+
+This major transit of Suffolk County is the MBTA rapid transit stations, which are known as the subway stations.It contains five lines: green, red, orange, silver, and blue.
+
+
+```{r read_station, cache = TRUE, message = FALSE, warning = FALSE}
+
+station_shp <- read_sf(dsn = "./data", layer = "MBTA_NODE") %>%
+  st_transform(st_crs(tracts09))  # set crs to be the same as the other object
+
+```
+
+
+```{r viz_station, cache = TRUE, message = FALSE, warning = FALSE}
+
+ggplot() + 
+  geom_sf(data=st_union(tracts09)) + # get rid of the borders of the census tracts to simplify the map
+  geom_sf(data=station_shp, 
+          aes(colour = LINE), 
+          show.legend = "point", size= 1) +
+  scale_colour_manual(values = c("#5397FA","#64DDFA","#FA9D9C","#5DC183","#CBE192","#E0C794","#FFA960","#FF9E76","#E67367","#828282")) +
+  labs(title="MBTA Subway Stops", 
+       subtitle="Suffolk County, MA") +
+  theme_void()
+
+
+```
+
+### Relating MBTA Stops and Tracts
+
+Each MBTA station will get a buffer of 800 meters as the zone for TOD area.
+
+```{r get-union-buffer, cache = TRUE, message = FALSE, warning = FALSE}
+buffer <- st_union(st_buffer(station_shp, 800)) # 800 meters
+
+ggplot() +
+  geom_sf(data=buffer) +
+  geom_sf(data=station_shp, show.legend = "point", size= 1) +
+  labs(caption = "Figure 4") +
+  theme_void()
+
+```
+
+### Comparasions across time and space
+
+Use the centroids of each census tract to get the TOD region and non-TOD region in Suffolk County.
+
+```{r tod-ntod, cache = TRUE, message = FALSE, warning = FALSE}
+allTracts.group <- 
+  rbind(
+    st_centroid(allTracts)[buffer,] %>%
+      st_drop_geometry() %>%
+      left_join(allTracts) %>%
+      st_sf() %>%
+      mutate(TOD = "TOD"),
+    st_centroid(allTracts)[buffer, op = st_disjoint] %>%
+      st_drop_geometry() %>%
+      left_join(allTracts) %>%
+      st_sf() %>%
+      mutate(TOD = "Non-TOD"))
+
+```
+
+1. Total population comparison:
+```{r all-pop, cache = TRUE, message = FALSE, warning = FALSE}
+
+ggplot() +
+  geom_sf(data=allTracts.group, aes(fill = TotalPop)) +
+  geom_sf(data=station_shp, show.legend = "point", size = 0.3) +
+  scale_fill_distiller(palette = "BuPu", direction = 1)+
+  facet_wrap(~TOD+year) + 
+      labs(fill = "Total Population") +
+  theme_void()
+```
+
+2. Percent of white population comparison:
+```{r all-white, cache = TRUE, message = FALSE, warning = FALSE}
+
+ggplot() +
+  geom_sf(data=allTracts.group, aes(fill = pctWhite)) +
+  geom_sf(data=station_shp, show.legend = "point", size = 0.3) +
+  scale_fill_distiller(palette = "BuPu", direction = 1)+
+  facet_wrap(~TOD+year) + 
+      labs(fill = "Percent of White Population") +
+  theme_void()
+```
+
+3. Percent of poverty comparison:
+```{r all-poverty, cache = TRUE, message = FALSE, warning = FALSE}
+
+ggplot() +
+  geom_sf(data=allTracts.group, aes(fill = pctPoverty)) +
+  geom_sf(data=station_shp, show.legend = "point", size = 0.3) +
+  scale_fill_distiller(palette = "BuPu", direction = 1)+
+  facet_wrap(~TOD+year) + 
+      labs(fill = "Percent of Poverty") +
+  theme_void()
+```
+
+4. Percent of bachelor degree comparison:
+```{r all-bach, cache = TRUE, message = FALSE, warning = FALSE}
+
+ggplot() +
+  geom_sf(data=allTracts.group, aes(fill = pctBachelors)) +
+  geom_sf(data=station_shp, show.legend = "point", size = 0.3) +
+  scale_fill_distiller(palette = "BuPu", direction = 1)+
+  facet_wrap(~TOD+year) + 
+      labs(fill = "Percent of Bachelor Degree") +
+  theme_void()
+```
+
+5. Median rent comparison: (inflation adjusted)
+```{r all-rent, cache = TRUE, message = FALSE, warning = FALSE}
+
+ggplot() +
+  geom_sf(data=allTracts.group, aes(fill = MedRent.inf)) +
+  geom_sf(data=station_shp, show.legend = "point", size = 0.3) +
+  scale_fill_distiller(palette = "BuPu", direction = 1)+
+  facet_wrap(~TOD+year) + 
+      labs(fill = "Median Rent") +
+  theme_void()
+```
+
+### TOD Indicator Tables
+
+```{r tod-ntod-table, cache = TRUE, message = FALSE, warning = FALSE}
+allTracts.Summary <- 
+  st_drop_geometry(allTracts.group) %>%
+  group_by(year, TOD) %>%
+  summarize(Rent = mean(MedRent, na.rm = T),
+            Population = mean(TotalPop, na.rm = T),
+            Percent_White = mean(pctWhite, na.rm = T),
+            Percent_Bach = mean(pctBachelors, na.rm = T),
+            Percent_Poverty = mean(pctPoverty, na.rm = T))
+
+kable(allTracts.Summary) %>%
+  kable_styling(bootstrap_options = c("striped", "hover")) %>%
+  footnote(general_title = "\n",
+           general = "Table 1")
+
+```
+
+
+```{r tod-ntod-table2, cache = TRUE, message = FALSE, warning = FALSE}
+allTracts.Summary %>%
+  unite(year.TOD, year, TOD, sep = ": ", remove = T) %>%
+  gather(Variable, Value, -year.TOD) %>%
+  mutate(Value = round(Value, 2)) %>%
+  spread(year.TOD, Value) %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover")) %>%
+  footnote(general_title = "\n",
+           general = "Table 2")
+```
+
+### TOD Indicator Plots
+
+```{r chart, cache = TRUE, message = FALSE, warning = FALSE}
+allTracts.Summary %>%
+  gather(Variable, Value, -year, -TOD) %>%
+  ggplot(aes(year, Value, fill = TOD)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  facet_wrap(~Variable, scales = "free", ncol=5) +
+  scale_fill_manual(values = c("#b3cde3", "#8856a7")) +
+  labs(title = "Indicator differences across time and space") +
+  theme_minimal()+ theme(legend.position="bottom")
+```
+
+### Summary
+From the above comparison, we can see that TOD will significantly influence the percentage of bachelor's degrees in each census tract. People live in TOD tend to have a higher percentage of Bachelors degree holders. This may be because Boston is a university city, and students usually don't have a car and prefer to live in the TOD area. On the other hand, the poverty rate of areas of TOD tends to be higher than in non-TOD areas, but the rent in TOD is usually higher than in non-TOD areas, which leads to the problem of housing affordability in TOD areas. More policies should be conducted to ensure the affordability of TOD areas.
