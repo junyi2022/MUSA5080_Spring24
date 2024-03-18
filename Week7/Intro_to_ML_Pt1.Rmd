@@ -49,13 +49,10 @@ The in-class exercise at the end encourages students to modify the existing code
 ```{r read_data}
 
 nhoods <- 
-  st_read("https://github.com/ECDelmelle/MUSA5080_Spring24/blob/main/Week7/BPDA_Neighborhood_Boundaries.geojson") %>%
+  st_read("D:/UPenn/Class/Spring 2024/PPA/MUSA5080_Spring24/Week7/BPDA_Neighborhood_Boundaries.geojson") %>%
   st_transform('ESRI:102286')
 
 ##If that is failing you, download the data to your own personal computer and link to the full path name. Sorry!
-
-nhoods <- st_read("~/Documents/MUSA508_Spring24/Week7/BPDA_Neighborhood_Boundaries.geojson")%>%
-  st_transform('ESRI:102286')
 
 boston <- 
   read.csv(file.path(root.dir,"/Chapter3_4/bostonHousePriceData_clean.csv"))
@@ -388,7 +385,7 @@ Better R-squared - does that mean it's a better model?
 
 ```{r mutlivariate_regression}
 reg1 <- lm(SalePrice ~ ., data = boston_sub_200k %>% 
-                                 dplyr::select(SalePrice, LivingArea, Style, 
+                                 dplyr::select(SalePrice, LivingArea, 
                                                GROSS_AREA, R_TOTAL_RM, NUM_FLOORS,
                                                R_BDRMS, R_FULL_BTH, R_HALF_BTH, 
                                                R_KITCH, R_AC, R_FPLACE))
