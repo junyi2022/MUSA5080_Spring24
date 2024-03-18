@@ -99,6 +99,32 @@ ggplot() +
   theme_void()
 ```
 
+```{r lostmap}
+# Load necessary library
+library(RColorBrewer)
+
+# Select a color brewer palette for sequential data
+palette5 <- brewer.pal(5, "YlGnBu")
+
+# Calculate quintiles for PricePerSq
+boston.sf$quintiles <- ntile(boston.sf$PricePerSq, 5)
+
+# Create the plot
+ggplot() +
+  geom_sf(data = nhoods, fill = "grey40") +
+  geom_sf(data = boston.sf, aes(fill = as.factor(quintiles)), 
+          show.legend = "point", size = 0.75) +
+  scale_fill_manual(values = palette5, 
+                    labels = paste("Quintile", 1:5), 
+                    name = "Price Per Square Foot") +
+  labs(title = "Price Per Square Foot, Boston") +
+  theme_void()
+
+```
+
+
+
+
 ### Cleaning Crime Data
 Why are we using a filter for `Lat > -1`?
 
