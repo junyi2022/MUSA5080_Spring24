@@ -1,0 +1,453 @@
+{
+    "type": "FeatureCollection",
+    "crs": {
+        "type": "name",
+        "properties": {
+            "name": "EPSG:2926"
+        }
+    },
+    "features": [
+        {
+            "type": "Feature",
+            "id": 4359,
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    1275103.66027848,
+                    222607.307479993
+                ]
+            },
+            "properties": {
+                "OBJECTID": 4359,
+                "STATION": "First Hill",
+                "STOP": "14th & Washington Central District",
+                "SE_ANNO_CAD_DATA": ""
+            }
+        },
+        {
+            "type": "Feature",
+            "id": 4360,
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    1273537.54661289,
+                    227621.13487713
+                ]
+            },
+            "properties": {
+                "OBJECTID": 4360,
+                "STATION": "First Hill",
+                "STOP": "Broadway & Pike Inbound",
+                "SE_ANNO_CAD_DATA": ""
+            }
+        },
+        {
+            "type": "Feature",
+            "id": 4361,
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    1269358.21598461,
+                    227957.718173474
+                ]
+            },
+            "properties": {
+                "OBJECTID": 4361,
+                "STATION": "South Lake Union",
+                "STOP": "Westlake & 7th",
+                "SE_ANNO_CAD_DATA": ""
+            }
+        },
+        {
+            "type": "Feature",
+            "id": 4362,
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    1273542.09426089,
+                    228991.067358524
+                ]
+            },
+            "properties": {
+                "OBJECTID": 4362,
+                "STATION": "First Hill",
+                "STOP": "Broadway & Howell Terminus",
+                "SE_ANNO_CAD_DATA": ""
+            }
+        },
+        {
+            "type": "Feature",
+            "id": 4363,
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    1273511.03813286,
+                    226003.777499467
+                ]
+            },
+            "properties": {
+                "OBJECTID": 4363,
+                "STATION": "First Hill",
+                "STOP": "Broadway & Marion Inbound",
+                "SE_ANNO_CAD_DATA": ""
+            }
+        },
+        {
+            "type": "Feature",
+            "id": 4364,
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    1269473.44766472,
+                    227254.769692749
+                ]
+            },
+            "properties": {
+                "OBJECTID": 4364,
+                "STATION": "South Lake Union",
+                "STOP": "Westlake Hub",
+                "SE_ANNO_CAD_DATA": ""
+            }
+        },
+        {
+            "type": "Feature",
+            "id": 4365,
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    1269564.71524882,
+                    230283.919839859
+                ]
+            },
+            "properties": {
+                "OBJECTID": 4365,
+                "STATION": "South Lake Union",
+                "STOP": "Terry & Thomas",
+                "SE_ANNO_CAD_DATA": ""
+            }
+        },
+        {
+            "type": "Feature",
+            "id": 4366,
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    1271942.66251525,
+                    222143.474455521
+                ]
+            },
+            "properties": {
+                "OBJECTID": 4366,
+                "STATION": "First Hill",
+                "STOP": "5th & Jackson",
+                "SE_ANNO_CAD_DATA": ""
+            }
+        },
+        {
+            "type": "Feature",
+            "id": 4367,
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    1269260.89272051,
+                    229089.688990638
+                ]
+            },
+            "properties": {
+                "OBJECTID": 4367,
+                "STATION": "South Lake Union",
+                "STOP": "Westlake & Denny",
+                "SE_ANNO_CAD_DATA": ""
+            }
+        },
+        {
+            "type": "Feature",
+            "id": 4368,
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    1273673.78789303,
+                    223005.367704406
+                ]
+            },
+            "properties": {
+                "OBJECTID": 4368,
+                "STATION": "First Hill",
+                "STOP": "Broadway & Yesler Inbound",
+                "SE_ANNO_CAD_DATA": ""
+            }
+        },
+        {
+            "type": "Feature",
+            "id": 4369,
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    1269594.95748885,
+                    231365.661792964
+                ]
+            },
+            "properties": {
+                "OBJECTID": 4369,
+                "STATION": "South Lake Union",
+                "STOP": "Terry & Mercer",
+                "SE_ANNO_CAD_DATA": ""
+            }
+        },
+        {
+            "type": "Feature",
+            "id": 4370,
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    1269230.26692848,
+                    229023.025054559
+                ]
+            },
+            "properties": {
+                "OBJECTID": 4370,
+                "STATION": "South Lake Union",
+                "STOP": "Westlake & 9th",
+                "SE_ANNO_CAD_DATA": ""
+            }
+        },
+        {
+            "type": "Feature",
+            "id": 4371,
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    1269262.29278451,
+                    231363.335456952
+                ]
+            },
+            "properties": {
+                "OBJECTID": 4371,
+                "STATION": "South Lake Union",
+                "STOP": "Westlake & Mercer",
+                "SE_ANNO_CAD_DATA": ""
+            }
+        },
+        {
+            "type": "Feature",
+            "id": 4372,
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    1269789.20580904,
+                    231927.469729543
+                ]
+            },
+            "properties": {
+                "OBJECTID": 4372,
+                "STATION": "South Lake Union",
+                "STOP": "Lake Union Park",
+                "SE_ANNO_CAD_DATA": ""
+            }
+        },
+        {
+            "type": "Feature",
+            "id": 4373,
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    1273550.1005969,
+                    226015.756699488
+                ]
+            },
+            "properties": {
+                "OBJECTID": 4373,
+                "STATION": "First Hill",
+                "STOP": "Broadway & Marion Outbound",
+                "SE_ANNO_CAD_DATA": ""
+            }
+        },
+        {
+            "type": "Feature",
+            "id": 4374,
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    1269236.70315248,
+                    230317.651551887
+                ]
+            },
+            "properties": {
+                "OBJECTID": 4374,
+                "STATION": "South Lake Union",
+                "STOP": "Westlake & Thomas",
+                "SE_ANNO_CAD_DATA": ""
+            }
+        },
+        {
+            "type": "Feature",
+            "id": 4375,
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    1269372.75691262,
+                    228156.523549676
+                ]
+            },
+            "properties": {
+                "OBJECTID": 4375,
+                "STATION": "South Lake Union",
+                "STOP": "Westlake & 7th",
+                "SE_ANNO_CAD_DATA": ""
+            }
+        },
+        {
+            "type": "Feature",
+            "id": 4376,
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    1274699.18763807,
+                    222092.138519466
+                ]
+            },
+            "properties": {
+                "OBJECTID": 4376,
+                "STATION": "First Hill",
+                "STOP": "13th & Jackson Little Saigon",
+                "SE_ANNO_CAD_DATA": ""
+            }
+        },
+        {
+            "type": "Feature",
+            "id": 4377,
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    1273479.79659683,
+                    224211.824345633
+                ]
+            },
+            "properties": {
+                "OBJECTID": 4377,
+                "STATION": "First Hill",
+                "STOP": "Broadway & Terrace Inbound",
+                "SE_ANNO_CAD_DATA": ""
+            }
+        },
+        {
+            "type": "Feature",
+            "id": 4378,
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    1273577.44050093,
+                    227899.235933408
+                ]
+            },
+            "properties": {
+                "OBJECTID": 4378,
+                "STATION": "First Hill",
+                "STOP": "Broadway & Pine Outbound",
+                "SE_ANNO_CAD_DATA": ""
+            }
+        },
+        {
+            "type": "Feature",
+            "id": 4379,
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    1272860.43358819,
+                    222127.166871503
+                ]
+            },
+            "properties": {
+                "OBJECTID": 4379,
+                "STATION": "First Hill",
+                "STOP": "7th & Jackson",
+                "SE_ANNO_CAD_DATA": ""
+            }
+        },
+        {
+            "type": "Feature",
+            "id": 4380,
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    1273622.56670897,
+                    223037.244184434
+                ]
+            },
+            "properties": {
+                "OBJECTID": 4380,
+                "STATION": "First Hill",
+                "STOP": "Broadway & Yesler Outbound",
+                "SE_ANNO_CAD_DATA": ""
+            }
+        },
+        {
+            "type": "Feature",
+            "id": 4381,
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    1270819.8776181,
+                    232540.774882168
+                ]
+            },
+            "properties": {
+                "OBJECTID": 4381,
+                "STATION": "South Lake Union",
+                "STOP": "Fairview & Campus Drive",
+                "SE_ANNO_CAD_DATA": ""
+            }
+        },
+        {
+            "type": "Feature",
+            "id": 4382,
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    1273003.92882034,
+                    220817.180566162
+                ]
+            },
+            "properties": {
+                "OBJECTID": 4382,
+                "STATION": "First Hill",
+                "STOP": "Charles Street - Maintenance Facility",
+                "SE_ANNO_CAD_DATA": ""
+            }
+        },
+        {
+            "type": "Feature",
+            "id": 4383,
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    1273521.73112486,
+                    224399.972953826
+                ]
+            },
+            "properties": {
+                "OBJECTID": 4383,
+                "STATION": "First Hill",
+                "STOP": "Broadway & Terrace Outbound",
+                "SE_ANNO_CAD_DATA": ""
+            }
+        },
+        {
+            "type": "Feature",
+            "id": 4384,
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    1270397.15851367,
+                    222172.742999554
+                ]
+            },
+            "properties": {
+                "OBJECTID": 4384,
+                "STATION": "First Hill",
+                "STOP": "Occidental Mall Pioneer Square",
+                "SE_ANNO_CAD_DATA": ""
+            }
+        }
+    ]
+}

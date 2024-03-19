@@ -1,0 +1,33 @@
+{
+"type": "FeatureCollection",
+"name": "streetcar_3857",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:EPSG::3857" } },
+"features": [
+{ "type": "Feature", "properties": { "OBJECTID": 4359, "STATION": "First Hill", "STOP": "14th & Washington Central District", "SE_ANNO_CAD_DATA": "" }, "geometry": { "type": "Point", "coordinates": [ -13615950.216282395645976, 6040670.565694776363671 ] } },
+{ "type": "Feature", "properties": { "OBJECTID": 4360, "STATION": "First Hill", "STOP": "Broadway & Pike Inbound", "SE_ANNO_CAD_DATA": "" }, "geometry": { "type": "Point", "coordinates": [ -13616700.459387697279453, 6042925.995271602645516 ] } },
+{ "type": "Feature", "properties": { "OBJECTID": 4361, "STATION": "South Lake Union", "STOP": "Westlake & 7th", "SE_ANNO_CAD_DATA": "" }, "geometry": { "type": "Point", "coordinates": [ -13618589.324034197255969, 6043041.56338470056653 ] } },
+{ "type": "Feature", "properties": { "OBJECTID": 4362, "STATION": "First Hill", "STOP": "Broadway & Howell Terminus", "SE_ANNO_CAD_DATA": "" }, "geometry": { "type": "Point", "coordinates": [ -13616710.358769398182631, 6043546.126058617606759 ] } },
+{ "type": "Feature", "properties": { "OBJECTID": 4363, "STATION": "First Hill", "STOP": "Broadway & Marion Inbound", "SE_ANNO_CAD_DATA": "" }, "geometry": { "type": "Point", "coordinates": [ -13616698.312183013185859, 6042193.734317068941891 ] } },
+{ "type": "Feature", "properties": { "OBJECTID": 4364, "STATION": "South Lake Union", "STOP": "Westlake Hub", "SE_ANNO_CAD_DATA": "" }, "geometry": { "type": "Point", "coordinates": [ -13618531.125681594014168, 6042724.412312854081392 ] } },
+{ "type": "Feature", "properties": { "OBJECTID": 4365, "STATION": "South Lake Union", "STOP": "Terry & Thomas", "SE_ANNO_CAD_DATA": "" }, "geometry": { "type": "Point", "coordinates": [ -13618516.657073425129056, 6044096.366793069057167 ] } },
+{ "type": "Feature", "properties": { "OBJECTID": 4366, "STATION": "First Hill", "STOP": "5th & Jackson", "SE_ANNO_CAD_DATA": "" }, "geometry": { "type": "Point", "coordinates": [ -13617372.163293993100524, 6040433.034209791570902 ] } },
+{ "type": "Feature", "properties": { "OBJECTID": 4367, "STATION": "South Lake Union", "STOP": "Westlake & Denny", "SE_ANNO_CAD_DATA": "" }, "geometry": { "type": "Point", "coordinates": [ -13618643.23194658011198, 6043553.082491030916572 ] } },
+{ "type": "Feature", "properties": { "OBJECTID": 4368, "STATION": "First Hill", "STOP": "Broadway & Yesler Inbound", "SE_ANNO_CAD_DATA": "" }, "geometry": { "type": "Point", "coordinates": [ -13616598.739673797041178, 6040838.216967326588929 ] } },
+{ "type": "Feature", "properties": { "OBJECTID": 4369, "STATION": "South Lake Union", "STOP": "Terry & Mercer", "SE_ANNO_CAD_DATA": "" }, "geometry": { "type": "Point", "coordinates": [ -13618512.549862397834659, 6044586.338388204574585 ] } },
+{ "type": "Feature", "properties": { "OBJECTID": 4370, "STATION": "South Lake Union", "STOP": "Westlake & 9th", "SE_ANNO_CAD_DATA": "" }, "geometry": { "type": "Point", "coordinates": [ -13618656.464174028486013, 6043522.635415979661047 ] } },
+{ "type": "Feature", "properties": { "OBJECTID": 4371, "STATION": "South Lake Union", "STOP": "Westlake & Mercer", "SE_ANNO_CAD_DATA": "" }, "geometry": { "type": "Point", "coordinates": [ -13618662.671023283153772, 6044582.34056483861059 ] } },
+{ "type": "Feature", "properties": { "OBJECTID": 4372, "STATION": "South Lake Union", "STOP": "Lake Union Park", "SE_ANNO_CAD_DATA": "" }, "geometry": { "type": "Point", "coordinates": [ -13618429.832773722708225, 6044842.397816420532763 ] } },
+{ "type": "Feature", "properties": { "OBJECTID": 4373, "STATION": "First Hill", "STOP": "Broadway & Marion Outbound", "SE_ANNO_CAD_DATA": "" }, "geometry": { "type": "Point", "coordinates": [ -13616680.791414434090257, 6042199.497730478644371 ] } },
+{ "type": "Feature", "properties": { "OBJECTID": 4374, "STATION": "South Lake Union", "STOP": "Westlake & Thomas", "SE_ANNO_CAD_DATA": "" }, "geometry": { "type": "Point", "coordinates": [ -13618664.988261191174388, 6044108.733324212953448 ] } },
+{ "type": "Feature", "properties": { "OBJECTID": 4375, "STATION": "South Lake Union", "STOP": "Westlake & 7th", "SE_ANNO_CAD_DATA": "" }, "geometry": { "type": "Point", "coordinates": [ -13618584.516505498439074, 6043131.678089934401214 ] } },
+{ "type": "Feature", "properties": { "OBJECTID": 4376, "STATION": "First Hill", "STOP": "13th & Jackson Little Saigon", "SE_ANNO_CAD_DATA": "" }, "geometry": { "type": "Point", "coordinates": [ -13616128.207532543689013, 6040433.925682335160673 ] } },
+{ "type": "Feature", "properties": { "OBJECTID": 4377, "STATION": "First Hill", "STOP": "Broadway & Terrace Inbound", "SE_ANNO_CAD_DATA": "" }, "geometry": { "type": "Point", "coordinates": [ -13616696.777935272082686, 6041382.480911295861006 ] } },
+{ "type": "Feature", "properties": { "OBJECTID": 4378, "STATION": "First Hill", "STOP": "Broadway & Pine Outbound", "SE_ANNO_CAD_DATA": "" }, "geometry": { "type": "Point", "coordinates": [ -13616684.883280500769615, 6043052.221377686597407 ] } },
+{ "type": "Feature", "properties": { "OBJECTID": 4379, "STATION": "First Hill", "STOP": "7th & Jackson", "SE_ANNO_CAD_DATA": "" }, "geometry": { "type": "Point", "coordinates": [ -13616958.001407010480762, 6040433.706104433164001 ] } },
+{ "type": "Feature", "properties": { "OBJECTID": 4380, "STATION": "First Hill", "STOP": "Broadway & Yesler Outbound", "SE_ANNO_CAD_DATA": "" }, "geometry": { "type": "Point", "coordinates": [ -13616622.125257067382336, 6040852.193810084834695 ] } },
+{ "type": "Feature", "properties": { "OBJECTID": 4381, "STATION": "South Lake Union", "STOP": "Fairview & Campus Drive", "SE_ANNO_CAD_DATA": "" }, "geometry": { "type": "Point", "coordinates": [ -13617970.037099391222, 6045129.164187723770738 ] } },
+{ "type": "Feature", "properties": { "OBJECTID": 4382, "STATION": "First Hill", "STOP": "Charles Street - Maintenance Facility", "SE_ANNO_CAD_DATA": "" }, "geometry": { "type": "Point", "coordinates": [ -13616881.831650912761688, 6039842.218981229700148 ] } },
+{ "type": "Feature", "properties": { "OBJECTID": 4383, "STATION": "First Hill", "STOP": "Broadway & Terrace Outbound", "SE_ANNO_CAD_DATA": "" }, "geometry": { "type": "Point", "coordinates": [ -13616679.49941205047071, 6041467.994167802855372 ] } },
+{ "type": "Feature", "properties": { "OBJECTID": 4384, "STATION": "First Hill", "STOP": "Occidental Mall Pioneer Square", "SE_ANNO_CAD_DATA": "" }, "geometry": { "type": "Point", "coordinates": [ -13618069.617504255846143, 6040432.675014700740576 ] } }
+]
+}
