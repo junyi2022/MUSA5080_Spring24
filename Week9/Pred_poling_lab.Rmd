@@ -318,7 +318,7 @@ Mendez C. (2020). Spatial autocorrelation analysis in R. R Studio/RPubs. Availab
 ```{r}
 ## generates warnings from PROJ issues
 ## {spdep} to make polygon to neighborhoods... 
-final_net.nb <- poly2nb(as_Spatial(final_net), queen=TRUE)
+final_net.nb <- poly2nb(as_Spatial(final_net), queen=TRUE) # poly2nb = polygon to neighborhood
 ## ... and neighborhoods to list of weigths
 final_net.weights <- nb2listw(final_net.nb, style="W", zero.policy=TRUE)
 
@@ -448,9 +448,9 @@ Note that the code here is *different* than in the book - it has been updated to
 ```{r}
 # demo of kernel width
 burg_ppp <- as.ppp(st_coordinates(burglaries), W = st_bbox(final_net))
-burg_KD.1000 <- spatstat.core::density.ppp(burg_ppp, 1000)
-burg_KD.1500 <- spatstat.core::density.ppp(burg_ppp, 1500)
-burg_KD.2000 <- spatstat.core::density.ppp(burg_ppp, 2000)
+burg_KD.1000 <- density.ppp(burg_ppp, 1000)
+burg_KD.1500 <- density.ppp(burg_ppp, 1500)
+burg_KD.2000 <- density.ppp(burg_ppp, 2000)
 burg_KD.df <- rbind(
   mutate(data.frame(rasterToPoints(mask(raster(burg_KD.1000), as(neighborhoods, 'Spatial')))), Legend = "1000 Ft."),
   mutate(data.frame(rasterToPoints(mask(raster(burg_KD.1500), as(neighborhoods, 'Spatial')))), Legend = "1500 Ft."),
