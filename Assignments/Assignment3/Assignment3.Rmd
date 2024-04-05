@@ -13,19 +13,6 @@ editor_options:
     wrap: 72
 ---
 
-We are going to run through the code base with just a couple variables in a model - in a slightly simplified workflow.
-
-Our learning goals for today are:
-
-1. Learn how to build spatial variables in a raster-like grid called a "fishnet"
-
-2. Learn how to run local Moran's I as a measure of local clustering
-
-3. Run a poisson regression to predict events measured in counts
-
-4. Compare model performance to Kernal Density as a "business-as-usual" alternative
-
-**Note that this code is different than the book - it has been updated and debugged to keep up with changes in packages and data sources used in this exercise. Please use this code as the basis for your homework, not the book code.**
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(
@@ -55,13 +42,16 @@ source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-L
 
 ```
 
-## Read in Data from Chicago
+## Introduction
+This project aims to build a machine learning model for assault prediction in Chicago, IL using crime data in 2022. The assault events used as the dependent variable in the model's preparation is extracted from *Chicago Data Portal*'s 2022 crime data, and multiple independent variables used in the model are from the same site and using the year that is closest to 2022.
 
-This uses the Socrata package for some data sets.
+## Data Wrangling
 
-Note where we bring in burglary data - you will want to vary this part to do your homework!
+### Crime Data Gathering
+This uses the Socrata package for data available through api. For the Chicago boundary, this project intentionally omit the O'Hare airport part for cleaner organization.
 
-```{r read_data}
+
+```{r read_data, include=FALSE}
 # Read and process police districts data
 policeDistricts <- 
   st_read("https://data.cityofchicago.org/api/geospatial/fthy-xz3r?method=export&format=GeoJSON") %>%
@@ -106,35 +96,37 @@ assault_clipped <- st_intersection(assault22, chicagoBoundary)
 
 ```
 
-## visualizing point data
+### visualizing 2022 Assault Location
 
-Plotting point data and density
-
-> How do we analyze point data?
-
-> Are there other geometries useful to represent point locations?
+Map on the left is the actual spots of assault incidents and map on the right is the density of assaults with contours overlaid on Chicago boundary.
 
 ```{r}
+
+# Define your custom color gradient with 3 colors
+my_colors <- c("#033E56", "#518984", "#9DC9A3", "#F5CD42", "#F5A70A", "#D05A30")
+
 # Uses grid.arrange to organize independent plots
 grid.arrange(
   ncol = 2,
   
   # Plot 1: assault overlaid on Chicago boundary
   ggplot() + 
-    geom_sf(data = chicagoBoundary) +  # Add Chicago boundary
-    geom_sf(data = assault_clipped, colour = "red", size = 0.1, show.legend = "point") +  # Overlay burglaries
-    labs(title = "Assault, Chicago - 2023") +  # Set plot title
-    theme_void(),  # Use a blank theme
+    geom_sf(data = chicagoBoundary, fill = "#e9e9e9", col = "grey") +  
+    geom_sf(data = assault_clipped, size = 0.05, color = "#F5A70A") + 
+    labs(title = "Assaults in Chicago in 2022") +  
+    theme_void(), 
   
-  # Plot 2: Density of burglaries with contours overlaid on Chicago boundary
+  # Plot 2: Density of assaults with contours overlaid on Chicago boundary
   ggplot() + 
-    geom_sf(data = chicagoBoundary, fill = "grey40") +  # Add Chicago boundary with grey fill
+    geom_sf(data = chicagoBoundary, fill = "#e9e9e9", col = "grey") + 
     stat_density2d(data = data.frame(st_coordinates(assault_clipped)),  # Compute 2D kernel density estimate
                    aes(X, Y, fill = ..level.., alpha = ..level..),  # Define aesthetics for density contours
                    size = 0.01, bins = 60, geom = 'polygon') +  # Set size and number of bins for contours
-    scale_fill_viridis() +  # Use Viridis color scale for fill
-    scale_alpha(range = c(0.00, 0.35), guide = FALSE) +  # Set transparency range for contours
-    labs(title = "Density of Assault") +  # Set plot title
+    scale_fill_gradientn(colors = my_colors, na.value = "#e9e9e9",
+                      name = "Kernal Density") +
+    scale_alpha(range = c(0.00, 0.25), guide = FALSE) +  # Set transparency range for contours
+    labs(title = "Density of Assaults",
+       caption = "Data: Chicago Data Portal Crimes 2022") +  # Set plot title
     theme_void() + theme(legend.position = "none")  # Use a blank theme and remove legend
 )
 
@@ -142,15 +134,11 @@ grid.arrange(
 
 ## Creating a fishnet grid
 
-> What is a fishnet grid?
-
-The `{sf}` package offers really easy way to create fishnet grids using the `st_make_grid()` function. The `cellsize` argument allows you to set the size of the grid cells; in this case it is set to `500` meters. You may have to do some research on the spatial layers projection (using `st_crs()` to know what coordinate system you are in) to understand if you are in feet or meters. If you are using Longitude and Latitude, you will need to project the data to a projected coordinate system to get distance measurements.
-
-Examine the fishnet - the unique ID is crucial to building a data set!
+Set grid cells with a cell size of 500 meters and aggregate assault points into it. 
 
 ```{r fishnet}
-## using {sf} to create the grid
-## Note the `.[chicagoBoundary] %>% ` line. This is needed to clip the grid to our data
+
+# Note the `.[chicagoBoundary] %>% ` line. This is needed to clip the grid to our data
 fishnet <- 
 st_make_grid(chicagoBoundary,
                cellsize = 500, 
@@ -159,16 +147,7 @@ st_make_grid(chicagoBoundary,
   st_sf() %>%   mutate(uniqueID = 1:n())
 
 
-
-
-```
-
-### Aggregate points to the fishnet
-
-> How can we aggregate points into a fishnet grid?
-
-```{r spatialjoin}
-## add a value of 1 to each crime, sum them with aggregate
+# add a value of 1 to each crime, sum them with aggregate
 crime_net <- 
   dplyr::select(assault_clipped) %>% 
   mutate(countAssault = 1) %>% 
@@ -180,35 +159,43 @@ crime_net <-
 
 ggplot() +
   geom_sf(data = crime_net, aes(fill = countAssault), color = NA) +
-  scale_fill_viridis("Count of Assault") +
-  labs(title = "Count of Assault for the fishnet") +
+  scale_fill_gradientn(colors = my_colors, na.value = "#e9e9e9",
+                      name = "Count of Assaults") +
+  labs(title = "Count of Assaults for the fishnet",
+       caption = "Data: Chicago Data Portal Crimes 2022") +
   theme_void()
 
 ```
 
+Use histogram to show the distribution of assault incidents for each grid cell.
 ```{r}
 ggplot(crime_net, aes(x = countAssault)) +
-  geom_histogram( fill="#56106E", color="#e9ecef") + 
+  geom_histogram( fill="#F5A70A", color="#e9e9e9") + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  theme(plot.subtitle = element_text(size = 9,face = "italic"),
-        plot.title = element_text(size = 12, face = "bold"), 
-        axis.text.x=element_text(size=6),
-        axis.text.y=element_text(size=6), 
-        axis.title=element_text(size=8), 
-        panel.background = element_blank(),
-        panel.border = element_rect(colour = "grey", fill=NA, size=0.8)) + 
-  labs(title = "Distribution of Assaults in Chicago 2021",
-       caption = "Data: Chicago Data Portal Crimes 2021") +
+  theme_minimal() + 
+  labs(title = "Distribution of Assaults in Chicago 2022",
+       caption = "Data: Chicago Data Portal Crimes 2022") +
   xlab("Assault Incidents") +
-  ylab("Count")
+  ylab("Count") 
 ```
 
 
 ## Modeling Spatial Features
+### Independent Variables Gathering
 
-add data
+Read data for the independent variables in the prediction model:  
+1. Abandoned Vehicles  
+2. Abandoned Buildings
+3. Graffiti  
+4. Street Lights Out  
+5. Sanitation Complaints  
+6. Liquor Retails  
+7. Business Licenses  
+8. Liquor and Public Places Licenses  
+9. Shotspotter Alert  
 
-```{r addpredictor}
+
+```{r addpredictor, include=FALSE}
 ## only pulling a single variable for our model to keep it simple
 ## using Socrata again
 # Read the dataset of abandoned vehicle service requests from the City of Chicago
@@ -311,11 +298,11 @@ neighborhoods <-
 
 
 
-#### How we aggregate a feature to our fishnet
+### Aggregate each feature to fishnet
 
-This is an important chunk of code with some unfamiliar lines. The overall objective is to assign the fishnet ID to each abandoned car point, group the points by fishnet ID and count them per ID, join that count back to the fishnet and then go from a long format to a wide format. 
+This part count the number of points for each independent variable within each grid.
 
-```{r jointofishnet}
+```{r jointofishnet, fig.height=15, fig.width=10}
 
 # Join data with the fishnet grid based on spatial intersection
 
@@ -332,67 +319,73 @@ vars_net <-
     #na.omit() %>%
     ungroup() # Ungroup the data frame (remove grouping structure)
 
-
-```
-
-```{r fig.height=15, fig.width=10}
+# plot
 vars_net.long <- 
   gather(vars_net, Variable, value, -geometry, -uniqueID)
 
 plot1 <- ggplot() +
   geom_sf(data = vars_net.long %>% filter(Variable == "Abandoned_Cars"), aes(fill=value), colour=NA) +
-  scale_fill_viridis(option = "magma") + 
+  scale_fill_gradientn(colors = my_colors, na.value = "#e9e9e9",
+                      name = "Count") + 
   labs(title = "Abandoned Cars") +
   theme_void()
 
 
 plot2 <- ggplot() +
   geom_sf(data = vars_net.long %>% filter(Variable == "Abandoned_Buildings"), aes(fill=value), colour=NA) +
-  scale_fill_viridis(option = "magma") + 
+  scale_fill_gradientn(colors = my_colors, na.value = "#e9e9e9",
+                      name = "Count") + 
   labs(title = "Abandoned Buildings") +
   theme_void()
 
 plot3 <- ggplot() +
   geom_sf(data = vars_net.long %>% filter(Variable == "Graffiti"), aes(fill=value), colour=NA) +
-  scale_fill_viridis(option = "magma") + 
+  scale_fill_gradientn(colors = my_colors, na.value = "#e9e9e9",
+                      name = "Count") + 
   labs(title = "Graffiti") +
   theme_void()
 
 plot4 <- ggplot() +
   geom_sf(data = vars_net.long %>% filter(Variable == "Street_Lights_Out"), aes(fill=value), colour=NA) +
-  scale_fill_viridis(option = "magma") + 
+  scale_fill_gradientn(colors = my_colors, na.value = "#e9e9e9",
+                      name = "Count") + 
   labs(title = "Street Lights Out") +
   theme_void()
 
 
 plot5 <- ggplot() +
   geom_sf(data = vars_net.long %>% filter(Variable == "Sanitation"), aes(fill=value), colour=NA) +
-  scale_fill_viridis(option = "magma") + 
+  scale_fill_gradientn(colors = my_colors, na.value = "#e9e9e9",
+                      name = "Count") + 
   labs(title = "Sanitation") +
   theme_void()
 
 plot6 <- ggplot() +
   geom_sf(data = vars_net.long %>% filter(Variable == "Liquor_Retail"), aes(fill=value), colour=NA) +
-  scale_fill_viridis(option = "magma") + 
+  scale_fill_gradientn(colors = my_colors, na.value = "#e9e9e9",
+                      name = "Count") + 
   labs(title = "Liquor Retail") +
   theme_void()
 
 plot7 <- ggplot() +
   geom_sf(data = vars_net.long %>% filter(Variable == "Business_License"), aes(fill=value), colour=NA) +
-  scale_fill_viridis(option = "magma") + 
+  scale_fill_gradientn(colors = my_colors, na.value = "#e9e9e9",
+                      name = "Count") + 
   labs(title = "Business License") +
   theme_void()
 
 
 plot8 <- ggplot() +
   geom_sf(data = vars_net.long %>% filter(Variable == "Liquor_License"), aes(fill=value), colour=NA) +
-  scale_fill_viridis(option = "magma") + 
+  scale_fill_gradientn(colors = my_colors, na.value = "#e9e9e9",
+                      name = "Count") + 
   labs(title = "Liquor License") +
   theme_void()
 
 plot9 <- ggplot() +
   geom_sf(data = vars_net.long %>% filter(Variable == "Shot_Spotter"), aes(fill=value), colour=NA) +
-  scale_fill_viridis(option = "magma") + 
+  scale_fill_gradientn(colors = my_colors, na.value = "#e9e9e9",
+                      name = "Count") + 
   labs(title = "Shot Spotter") +
   theme_void()
 
@@ -400,15 +393,16 @@ grid.arrange(
   plot1, plot2, plot3, plot4,
   plot5, plot6, plot7, plot8, plot9,
   ncol = 3  
-)
+) 
+
 ```
 
 
-## Nearest Neighbor Feature
+### Nearest Neighbor Feature
 
-This code calculates the nearest neighbors (NN) of abandoned cars to the centroids of fishnet grid cells. It first defines two convenience aliases st_c and st_coid for st_coordinates and st_centroid functions, respectively, to reduce the length of function names. Then, it creates a new column named Abandoned_Cars.nn in the vars_net dataframe using a custom nn_function. This function finds the nearest neighbors of the centroids of fishnet grid cells to the abandoned car locations, considering the 3 closest neighbors (k = 3).
+This part calculates the nearest neighbors (NN) of each independent variable to the centroid of fishnet grid cells. The number of nearest neighbors used for each variable depends on the quantity  of the original data. 
 
-```{r knn}
+```{r knn, fig.height=15, fig.width=10}
 # Convenience aliases to reduce the length of function names
 st_c    <- st_coordinates  # Alias for st_coordinates function
 st_coid <- st_centroid     # Alias for st_centroid function
@@ -436,11 +430,6 @@ vars_net <-
       Shot_Spotter.nn =
         nn_function(st_c(st_coid(vars_net)), st_c(shotSpotter),3))
 
-```
-
-> What changes if we make `k` a different number?
-
-```{r vizNN, fig.height=15, fig.width=10}
 ## Visualize the NN feature
 vars_net.long.nn <- 
   dplyr::select(vars_net, ends_with(".nn")) %>%
@@ -449,58 +438,67 @@ vars_net.long.nn <-
 
 p1.nn <- ggplot() +
   geom_sf(data = vars_net.long.nn %>% filter(Variable == "Abandoned_Cars.nn"), aes(fill=value), colour=NA) +
-  scale_fill_viridis(name="NN Distance", option = "magma") + 
+  scale_fill_gradientn(colors = my_colors, na.value = "#e9e9e9",
+                      name = "Distance") + 
   labs(title = "Abandoned Car NN Distance") +
   theme_void()
 
 
 p2.nn <- ggplot() +
   geom_sf(data = vars_net.long.nn %>% filter(Variable == "Abandoned_Buildings.nn"), aes(fill=value), colour=NA) +
-  scale_fill_viridis(name="NN Distance", option = "magma") + 
+  scale_fill_gradientn(colors = my_colors, na.value = "#e9e9e9",
+                      name = "Distance") + 
   labs(title = "Abandoned Building NN Distance") +
   theme_void()
 
 p3.nn <- ggplot() +
   geom_sf(data = vars_net.long.nn %>% filter(Variable == "Graffiti.nn"), aes(fill=value), colour=NA) +
-  scale_fill_viridis(name="NN Distance", option = "magma") + 
+  scale_fill_gradientn(colors = my_colors, na.value = "#e9e9e9",
+                      name = "Distance") + 
   labs(title = "Graffiti NN Distance") +
   theme_void()
 
 p4.nn <- ggplot() +
   geom_sf(data = vars_net.long.nn %>% filter(Variable == "Street_Lights_Out.nn"), aes(fill=value), colour=NA) +
-  scale_fill_viridis(name="NN Distance", option = "magma") + 
+  scale_fill_gradientn(colors = my_colors, na.value = "#e9e9e9",
+                      name = "Distance") + 
   labs(title = "Street Lights Out NN Distance") +
   theme_void()
 
 
 p5.nn <- ggplot() +
   geom_sf(data = vars_net.long.nn %>% filter(Variable == "Sanitation.nn"), aes(fill=value), colour=NA) +
-  scale_fill_viridis(name="NN Distance", option = "magma") + 
+  scale_fill_gradientn(colors = my_colors, na.value = "#e9e9e9",
+                      name = "Distance") + 
   labs(title = "Sanitation NN Distance") +
   theme_void()
 
 p6.nn <- ggplot() +
   geom_sf(data = vars_net.long.nn %>% filter(Variable == "Liquor_Retail.nn"), aes(fill=value), colour=NA) +
-  scale_fill_viridis(name="NN Distance", option = "magma") + 
+  scale_fill_gradientn(colors = my_colors, na.value = "#e9e9e9",
+                      name = "Distance") + 
   labs(title = "Liquor Retail NN Distance") +
   theme_void()
 
 p7.nn <- ggplot() +
   geom_sf(data = vars_net.long.nn %>% filter(Variable == "Business_License.nn"), aes(fill=value), colour=NA) +
-  scale_fill_viridis(name="NN Distance", option = "magma") + 
+  scale_fill_gradientn(colors = my_colors, na.value = "#e9e9e9",
+                      name = "Distance") + 
   labs(title = "Business License NN Distance") +
   theme_void()
 
 
 p8.nn <- ggplot() +
   geom_sf(data = vars_net.long.nn %>% filter(Variable == "Liquor_License.nn"), aes(fill=value), colour=NA) +
-  scale_fill_viridis(name="NN Distance", option = "magma") + 
+  scale_fill_gradientn(colors = my_colors, na.value = "#e9e9e9",
+                      name = "Distance") + 
   labs(title = "Liquor License NN Distance") +
   theme_void()
 
 p9.nn <- ggplot() +
   geom_sf(data = vars_net.long.nn %>% filter(Variable == "Shot_Spotter.nn"), aes(fill=value), colour=NA) +
-  scale_fill_viridis(name="NN Distance", option = "magma") + 
+  scale_fill_gradientn(colors = my_colors, na.value = "#e9e9e9",
+                      name = "Distance") + 
   labs(title = "Shot Spotter NN Distance") +
   theme_void()
 
@@ -513,25 +511,14 @@ grid.arrange(
 ```
 
 
+## Join crime and areal data to fishnet
 
-## Join crime data to fishnet
-
-Since the counts were aggregated to each cell by `uniqueID` we can use that to join the counts to the fishnet.
+Since the counts were aggregated to each cell by `uniqueID` we can use that to join the counts to the fishnet. Besides, Use spatial joins to join *centroids* of fishnets to polygon for neighborhoods and districts.
 
 ```{r}
 ## important to drop the geometry from joining features
 final_net <-
   left_join(crime_net, st_drop_geometry(vars_net), by="uniqueID") 
-
-```
-
-### Join in areal data
-
-Using spatial joins to join *centroids* of fishnets to polygon for neighborhoods and districts.
-
-> What issues arise when we try to join polygons to polygons in space?
-
-```{r}
 
 final_net <-
   st_centroid(final_net) %>%
@@ -544,31 +531,26 @@ final_net <-
 
 # for live demo
 # mapview::mapview(final_net, zcol = "District")
+
 ```
+
 
 ## Local Moran's I for fishnet grid cells
 
-using {spdep} package to to build neighborhood weights and list to calculate local Moran's I.
+Using {spdep} package to to build neighborhood weights and list to calculate local Moran's I.  
 
-Note that the code here is *different* than in the book - it has been updated to keep up with changes in packages.
+we can get high local moran's I values in the case of either high values near other high values or low values near other low values.   
 
-> What is the difference between local and global Moran's I?
+In the code below, we examine the local moran's I value, the p-value, and extracts hotspots based on the p-value.  
 
-A little in depth version of the chunk below can be found:
 
-Mendez C. (2020). Spatial autocorrelation analysis in R. R Studio/RPubs. Available at <https://rpubs.com/quarcs-lab/spatial-autocorrelation>
+```{r fig.height=9, fig.width=8}
 
-```{r}
 ## generates warnings from PROJ issues
 ## {spdep} to make polygon to neighborhoods... 
 final_net.nb <- poly2nb(as_Spatial(final_net), queen=TRUE)
 ## ... and neighborhoods to list of weigths
 final_net.weights <- nb2listw(final_net.nb, style="W", zero.policy=TRUE)
-
-# print(final_net.weights, zero.policy=TRUE)
-```
-
-```{r}
 
 # join local Moran's I results to fishnet
 local_morans <- localmoran(final_net$countAssault, final_net.weights, zero.policy=TRUE) %>% 
@@ -582,19 +564,8 @@ final_net.localMorans <-
                 P_Value = `Pr(z != E(Ii))`) %>%
   mutate(Significant_Hotspots = ifelse(P_Value <= 0.05, 1, 0)) %>%
   gather(Variable, Value, -geometry)
-  
-```
 
-### Plotting local Moran's I results
-
-we can get high local moran's I values in the case of either high values near other high values or low values near other low values. If you check out the equation for LMI, you'll see that it is driven by a calulation for all pairs of neighbors, that looks at the (in this case) home values of one neighborhood minus the mean of all home values in the study, times home values of an adjacent neighborhood minus the mean. Therefore, since we multiply them together, two values below the mean will yield and positive value as well two values above the mean. 
-
-In the code below, we examine the local moran's I value, the p-value, and extracts hotspots (that can be hot or cold!) based on the p-value.
-
-> What does a significant hot spot tell us about the distribution of burglaries?
-
-```{r fig.height=7, fig.width=6}
-## This is just for plotting
+# This is just for plotting
 vars <- unique(final_net.localMorans$Variable)
 varList <- list()
 
@@ -603,7 +574,8 @@ for(i in vars){
     ggplot() +
       geom_sf(data = filter(final_net.localMorans, Variable == i), 
               aes(fill = Value), colour=NA) +
-      scale_fill_viridis(name="") +
+      scale_fill_gradientn(colors = my_colors, na.value = "#e9e9e9",
+                      name = "") +
       labs(title=i) +
       theme_void()}
 
@@ -611,10 +583,11 @@ grid.arrange(varList[[1]], varList[[2]], varList[[3]], varList[[4]],
   ncol = 2, top = "Local Morans I statistics, Assaults")
 ```
 
-Now, we need to actually find the clusters of high-high values that exist in the upper-right quadrant of a local moran's I plot. This plots the original values (countAssault) and the spatial lag of that value (wx), the average count Assault value for each cells' neighboring cells. Not the scale function in front of abandoned cars in the mp function. This places the values on a z-score so that the average value is 0 and positive values are above the mean (1= 1sd above the mean). A 'high' value technically means it is above the mean of the city. This code then looks for values of the cell that are above the mean and values of its neighborhs that are above the mean and only takes those that are statistically significant.
+Now, we need to actually find the clusters of high-high values that exist in the upper-right quadrant of a local moran's I plot. This plots the original values (countAssault) and the spatial lag of that value (wx), the average count sssault value for each cells' neighboring cells. Not the scale function in front of abandoned cars in the mp function. This places the values on a z-score so that the average value is 0 and positive values are above the mean (1= 1sd above the mean). A 'high' value technically means it is above the mean of the city. This code then looks for values of the cell that are above the mean and values of its neighborhs that are above the mean and only takes those that are statistically significant.  
 
-We create a binary variable called 'hotspot' that meets these criteria.
-```{r lmi_hotspot}
+We create a binary variable called 'hotspot' that meets these criteria.  
+
+```{r, eval = FALSE}
 
 lmoran <- localmoran(final_net$countAssault, final_net.weights,  zero.policy=TRUE)
 
@@ -629,12 +602,35 @@ mp <- moran.plot(as.vector(scale(final_net$countAssault)), final_net.weights, ze
 final_net$hotspot <- 0
 # high-high
 final_net[(mp$x >= 0 & mp$wx >= 0) & (final_net$lmp <= 0.05), "hotspot"]<- 1
+
+as.numeric(final_net$hotspot) 
+
 ```
 
-Now we will calculate distance to that nearest hotspot
+```{r, eval = FALSE}
+
+lmoran <- localmoran(final_net$countAssault, final_net.weights,  zero.policy=TRUE)
+
+final_net$lmI <- lmoran[, "Ii"] # local Moran's I
+final_net$lmZ <- lmoran[, "Z.Ii"] # z-scores
+final_net$lmp <- lmoran[, "Pr(z != E(Ii))"]
 
 
+mp <- moran.plot(as.vector(scale(final_net$countAssault)), final_net.weights, zero.policy = TRUE)
+
+##Create a hotspot variable:
+final_net$hotspot <- 0
+# high-high
+final_net[(mp$x >= 0 & mp$wx >= 0) & (final_net$lmp <= 0.05), "hotspot"]<- 1
+
+as.numeric(final_net$hotspot) 
+
+```
+
+## NN distance to hotspot
+Now we will calculate distance to that nearest hotspot and plot NN distance to hot spot
 ```{r}
+
 # generates warning from NN
 final_net <- final_net %>% 
   mutate(assault.isSig.dist = 
@@ -645,19 +641,21 @@ final_net <- final_net %>%
 
 ```
 
-> What does `k = 1` above mean in terms of measuring nearest neighbors?
-
-### Plot NN distance to hot spot
 
 ```{r}
+
+
 ggplot() +
       geom_sf(data = final_net, aes(fill=assault.isSig.dist), colour=NA) +
-      scale_fill_viridis(name="NN Distance") +
+      scale_fill_gradientn(colors = my_colors, na.value = "#e9e9e9",
+                      name = "NN Distance") +
       labs(title="Assault NN Distance") +
       theme_void()
+
 ```
 
-## Coorelation
+
+## Coorelation analysis
 
 ```{r fig.height=7, fig.width=10}
 
@@ -682,7 +680,7 @@ ggplot(final_net_long, aes(Value, countAssault)) +
 ## Modeling and CV
 ### Random K fold CV
 
-```{r}
+```{r, eval = FALSE}
 
 ## define the variables we want
 reg.vars <- c("Abandoned_Buildings", "Abandoned_Cars", "Business_License.nn","Graffiti", 
@@ -706,12 +704,40 @@ reg.ss.cv <- crossValidate(
   dependentVariable = "countAssault",
   indVariables = reg.ss.vars) %>%
     dplyr::select(cvID = cvID, countAssault, Prediction, geometry)
+
+```
+
+```{r, include = FALSE}
+
+## define the variables we want
+reg.vars <- c("Abandoned_Buildings", "Abandoned_Cars", "Business_License.nn","Graffiti", 
+                 "Liquor_License.nn", "Liquor_Retail.nn", "Street_Lights_Out", "Sanitation", 
+                 "Shot_Spotter")
+
+reg.ss.vars <- c("Abandoned_Buildings", "Abandoned_Cars", "Business_License.nn","Graffiti", 
+                 "Liquor_License.nn", "Liquor_Retail.nn", "Street_Lights_Out", "Sanitation", 
+                 "Shot_Spotter", "lmI", "lmZ", "assault.isSig.dist")
+
+reg.cv <- crossValidate(
+  dataset = final_net,
+  id = "cvID",
+  dependentVariable = "countAssault",
+  indVariables = reg.vars) %>%
+    dplyr::select(cvID = cvID, countAssault, Prediction, geometry)
+
+reg.ss.cv <- crossValidate(
+  dataset = final_net,
+  id = "cvID",
+  dependentVariable = "countAssault",
+  indVariables = reg.ss.vars) %>%
+    dplyr::select(cvID = cvID, countAssault, Prediction, geometry)
+
 ```
 
 ### Spatial LOGO CV
-Leave One Group Out CV on spatial features
+Leave One Group Out CV on spatial features.
 
-```{r results='hide'}
+```{r, eval = FALSE}
 
 reg.spatialCV <- crossValidate(
   dataset = final_net,
@@ -726,7 +752,29 @@ reg.ss.spatialCV <- crossValidate(
   dependentVariable = "countAssault",
   indVariables = reg.ss.vars) %>%
     dplyr::select(cvID = name, countAssault, Prediction, geometry)
+
 ```
+
+```{r, include = FALSE}
+
+reg.spatialCV <- crossValidate(
+  dataset = final_net,
+  id = "name",
+  dependentVariable = "countAssault",
+  indVariables = reg.vars) %>%
+    dplyr::select(cvID = name, countAssault, Prediction, geometry)
+
+reg.ss.spatialCV <- crossValidate(
+  dataset = final_net,
+  id = "name",
+  dependentVariable = "countAssault",
+  indVariables = reg.ss.vars) %>%
+    dplyr::select(cvID = name, countAssault, Prediction, geometry)
+
+```
+
+### Compare regressions
+Comparing the error across different regressions, we see that adding spatial process features improve the model.
 
 ```{r}
 reg.summary <- 
@@ -761,19 +809,24 @@ st_drop_geometry(error_by_reg_and_fold) %>%
 
 ```
 
+The small multiple maps below visualizes the distribution of errors by regression. For the random k-fold cv method, the errors are pretty evenly distributed across space. However, for spatial logo-cv method, higher errors occur at spatial hotspots.
 
 ```{r fig.width=10}
 
 error_by_reg_and_fold %>% 
   ggplot() +
   geom_sf(aes(fill=MAE), color="transparent") +
-  scale_fill_viridis(option = "magma", direction = -1) + 
+  scale_fill_gradientn(colors = my_colors, na.value = "#e9e9e9",
+                      name = "MAE") + 
   facet_wrap(~Regression, ncol = 4) +
    labs(title = "MAE by Fold and Regression",
        caption = "Data: Chicago Data Portal") +
   theme_void() 
 
 ```
+
+### Raw errors by race context
+Chicago remains a very segregated city and there’s clear racial boundary between places. In particular, northern and northeastern part of Chicago are majority white while the remaining parts are all made up of racial minorities.
 
 
 ```{r}
@@ -791,12 +844,14 @@ tracts22 <-
 
 
 ggplot() + geom_sf(data = na.omit(tracts22), aes(fill = majority), color = NA) +
-    scale_fill_manual(values = c("#BB3754", "#56106E"), name="Race Context") +
+    scale_fill_manual(values = c("#033E56", "#D05A30"), name="Race Context") +
     labs(title = "Race Context ",
          caption = "Data: American Community Survey 2021") +
   theme_void() 
 
 ```
+
+In summary, the model works pretty good and do not overpredict area that are mostly minority groups.
 
 ```{r}
 
@@ -825,10 +880,8 @@ reg.summary %>%
 
 
 ## Density vs predictions
-
-The `spatstat` function gets us kernal density estimates with varying search radii.
-
-Note that the code here is *different* than in the book - it has been updated to keep up with changes in packages.
+### Kernel density map
+The `spatstat` function gets us kernal density estimates with varying search radii. The code block below creates a Kernel density map of assaults with a 1000, 1500, and 2000 foot search radius.
 
 ```{r fig.width=10}
 # demo of kernel width
@@ -847,17 +900,35 @@ ggplot(data=assault_KD.df, aes(x=x, y=y)) +
   geom_raster(aes(fill=layer)) + 
   facet_wrap(~Legend) +
   coord_sf(crs=st_crs(final_net)) + 
-  scale_fill_viridis(name="Density") +
+  scale_fill_gradientn(colors = my_colors, na.value = "#e9e9e9",
+                      name = "Density") +
   labs(title = "Kernel density with 3 different search radii") +
   theme_void()
 ```
 
 
-## Get 2023 crime data
+### Get 2023 crime data
 
 Let's see how our model performed relative to KD on the following year's data.
 
-```{r}
+```{r, eval = FALSE}
+assault23 <- 
+  read.socrata("https://data.cityofchicago.org/Public-Safety/Crimes-2023/xguy-4ndq/") %>% 
+  filter(Primary.Type == "ASSAULT") %>%
+  mutate(x = gsub("[()]", "", Location)) %>%
+  separate(x,into= c("Y","X"), sep=",") %>%
+  mutate(X = as.numeric(X), Y = as.numeric(Y)) %>% 
+  na.omit %>%
+  st_as_sf(coords = c("X", "Y"), crs = 4326, agr = "constant") %>%
+  st_transform('ESRI:102271') %>% 
+  distinct() %>%
+  .[fishnet,]
+
+assault_clipped23 <- st_intersection(assault23, chicagoBoundary)
+
+```
+
+```{r, include = FALSE}
 assault23 <- 
   read.socrata("https://data.cityofchicago.org/Public-Safety/Crimes-2023/xguy-4ndq/") %>% 
   filter(Primary.Type == "ASSAULT") %>%
@@ -898,7 +969,6 @@ assault_KDE_sf <- assault_KDE_sum %>%
 
 ```
 
-Note that this is different from the book, where we pull a model out of a list of models we've created. For your homework, you'll be creating multiple models.
 
 ```{r}
 ml_breaks <- classIntervals(reg.ss.spatialCV$Prediction, 
@@ -951,7 +1021,9 @@ rbind(assault_KDE_sf, assault_risk_sf_kfold, assault_risk_sf) %>%
     geom_sf(aes(fill = Risk_Category), colour = NA) +
     facet_wrap(~label, ) +
     geom_sf(data = sample_n(assault_clipped23, 3000), size = .03, colour = "white") +
-    scale_fill_viridis(option = "magma", discrete = TRUE, name = "Risk Category") +
+    scale_fill_manual(values = c("#033E56", "#518984", "#9DC9A3", "#F5CD42", "#F5A70A"),
+                     name = "Risk Category",
+                     labels = labels) +
     labs(title="Comparison of Kernel Density and Risk Predictions",
          subtitle="2022 assault risk predictions; 2023 assault") + 
   theme_void()
@@ -970,11 +1042,13 @@ rbind(assault_KDE_sf, assault_risk_sf_kfold, assault_risk_sf) %>%
   mutate(Pcnt_of_test_set_crimes = countAssault / sum(countAssault)) %>%
     ggplot(aes(Risk_Category,Pcnt_of_test_set_crimes)) +
       geom_bar(aes(fill=label), position="dodge", stat="identity") +
-      scale_fill_viridis(discrete = TRUE, name = "Model") +
+      scale_fill_manual(values = c("#033E56", "#9DC9A3", "#F5CD42"),
+                     name = "Model",
+                     labels = labels) +
       labs(title = "Risk prediction vs. Kernel density, 2023 Assaults",
            y = "% of Test Set Assault (per model)",
            x = "Risk Category") +
-  theme_bw() +
+  theme_minimal() +
       theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
 
 ```
