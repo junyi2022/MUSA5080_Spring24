@@ -583,67 +583,26 @@ grid.arrange(varList[[1]], varList[[2]], varList[[3]], varList[[4]],
   ncol = 2, top = "Local Morans I statistics, Assaults")
 ```
 
-Now, we need to actually find the clusters of high-high values that exist in the upper-right quadrant of a local moran's I plot. This plots the original values (countAssault) and the spatial lag of that value (wx), the average count sssault value for each cells' neighboring cells. Not the scale function in front of abandoned cars in the mp function. This places the values on a z-score so that the average value is 0 and positive values are above the mean (1= 1sd above the mean). A 'high' value technically means it is above the mean of the city. This code then looks for values of the cell that are above the mean and values of its neighborhs that are above the mean and only takes those that are statistically significant.  
-
-We create a binary variable called 'hotspot' that meets these criteria.  
-
-```{r, eval = FALSE}
-
-lmoran <- localmoran(final_net$countAssault, final_net.weights,  zero.policy=TRUE)
-
-final_net$lmI <- lmoran[, "Ii"] # local Moran's I
-final_net$lmZ <- lmoran[, "Z.Ii"] # z-scores
-final_net$lmp <- lmoran[, "Pr(z != E(Ii))"]
-
-
-mp <- moran.plot(as.vector(scale(final_net$countAssault)), final_net.weights, zero.policy = TRUE)
-
-##Create a hotspot variable:
-final_net$hotspot <- 0
-# high-high
-final_net[(mp$x >= 0 & mp$wx >= 0) & (final_net$lmp <= 0.05), "hotspot"]<- 1
-
-as.numeric(final_net$hotspot) 
-
-```
-
-```{r, eval = FALSE}
-
-lmoran <- localmoran(final_net$countAssault, final_net.weights,  zero.policy=TRUE)
-
-final_net$lmI <- lmoran[, "Ii"] # local Moran's I
-final_net$lmZ <- lmoran[, "Z.Ii"] # z-scores
-final_net$lmp <- lmoran[, "Pr(z != E(Ii))"]
-
-
-mp <- moran.plot(as.vector(scale(final_net$countAssault)), final_net.weights, zero.policy = TRUE)
-
-##Create a hotspot variable:
-final_net$hotspot <- 0
-# high-high
-final_net[(mp$x >= 0 & mp$wx >= 0) & (final_net$lmp <= 0.05), "hotspot"]<- 1
-
-as.numeric(final_net$hotspot) 
-
-```
 
 ## NN distance to hotspot
 Now we will calculate distance to that nearest hotspot and plot NN distance to hot spot
 ```{r}
 
 # generates warning from NN
-final_net <- final_net %>% 
-  mutate(assault.isSig.dist = 
-           nn_function(st_c(st_coid(final_net)),
-                       st_c(st_coid(filter(final_net, 
-                                           hotspot == 1))), 
-                       k = 1))
+# final_net <- final_net %>% 
+#   mutate(assault.isSig.dist = 
+#            nn_function(st_c(st_coid(final_net)),
+#                        st_c(st_coid(filter(final_net, 
+#                                            hotspot == 1))), 
+#                        k = 1))
 
-```
-
-
-```{r}
-
+final_net <-
+  final_net %>% 
+  mutate(assault.isSig = ifelse(localmoran(final_net$countAssault, 
+                             final_net.weights)[,5] <= 0.001, 1, 0)) %>%
+  mutate(assault.isSig.dist = nn_function(st_coordinates(st_centroid(final_net)),
+                                          st_coordinates(st_centroid(
+                                            filter(final_net, assault.isSig == 1))), 1))
 
 ggplot() +
       geom_sf(data = final_net, aes(fill=assault.isSig.dist), colour=NA) +
@@ -655,20 +614,22 @@ ggplot() +
 ```
 
 
+
+
 ## Coorelation analysis
 
 ```{r fig.height=7, fig.width=10}
 
 final_net2 <- st_drop_geometry(final_net) %>%
-  dplyr::select(-c(uniqueID, cvID, name, District, hotspot, lmp, Shot_Spotter.nn))
+  dplyr::select(-c(uniqueID, cvID, name, District, Business_License, Liquor_License,Shot_Spotter.nn, assault.isSig))
  
 
 final_net_long <- gather(final_net2, Variable, Value, -countAssault)
 
 # Create scatterplot with linear regression lines for each variable
 ggplot(final_net_long, aes(Value, countAssault)) + 
-  geom_point(size = .25, color = "#5c6e6c") +
-  geom_smooth(method = "lm", se = FALSE, color = "#b0522a", size = 0.8) +
+  geom_point(size = .25, color = "#033E56") +
+  geom_smooth(method = "lm", se = FALSE, color = "#D05A30", size = 0.8) +
   facet_wrap(~Variable, ncol = 4, scales = "free") + 
   labs(title = "countAssault as a function of continuous variables") + 
   theme_minimal()
@@ -716,7 +677,7 @@ reg.vars <- c("Abandoned_Buildings", "Abandoned_Cars", "Business_License.nn","Gr
 
 reg.ss.vars <- c("Abandoned_Buildings", "Abandoned_Cars", "Business_License.nn","Graffiti", 
                  "Liquor_License.nn", "Liquor_Retail.nn", "Street_Lights_Out", "Sanitation", 
-                 "Shot_Spotter", "lmI", "lmZ", "assault.isSig.dist")
+                 "Shot_Spotter", "assault.isSig.dist")
 
 reg.cv <- crossValidate(
   dataset = final_net,
@@ -828,8 +789,8 @@ error_by_reg_and_fold %>%
 ### Raw errors by race context
 Chicago remains a very segregated city and there’s clear racial boundary between places. In particular, northern and northeastern part of Chicago are majority white while the remaining parts are all made up of racial minorities.
 
+```{r, eval = FALSE}
 
-```{r}
 tracts22 <- 
   get_acs(geography = "tract", 
           variables = c("B02001_001E", # total population
@@ -842,6 +803,25 @@ tracts22 <-
   mutate(pctWhite = ifelse(TotalPop > 0, Whites / TotalPop, 0), 
          majority = ifelse(pctWhite > 0.5, "White Dominant", "Not White Dominant")) %>%   .[neighborhoods,]
 
+```
+
+```{r, include = FALSE}
+
+tracts22 <- 
+  get_acs(geography = "tract", 
+          variables = c("B02001_001E", # total population
+            "B02001_002E"), # white population
+          year=2022, state=17, county=031, 
+          geometry=TRUE, output="wide") %>%
+  st_transform('ESRI:102271') %>% 
+  rename(TotalPop = B02001_001E, 
+         Whites = B02001_002E) %>% 
+  mutate(pctWhite = ifelse(TotalPop > 0, Whites / TotalPop, 0), 
+         majority = ifelse(pctWhite > 0.5, "White Dominant", "Not White Dominant")) %>%   .[neighborhoods,]
+
+```
+
+```{r}
 
 ggplot() + geom_sf(data = na.omit(tracts22), aes(fill = majority), color = NA) +
     scale_fill_manual(values = c("#033E56", "#D05A30"), name="Race Context") +
@@ -911,22 +891,6 @@ ggplot(data=assault_KD.df, aes(x=x, y=y)) +
 
 Let's see how our model performed relative to KD on the following year's data.
 
-```{r, eval = FALSE}
-assault23 <- 
-  read.socrata("https://data.cityofchicago.org/Public-Safety/Crimes-2023/xguy-4ndq/") %>% 
-  filter(Primary.Type == "ASSAULT") %>%
-  mutate(x = gsub("[()]", "", Location)) %>%
-  separate(x,into= c("Y","X"), sep=",") %>%
-  mutate(X = as.numeric(X), Y = as.numeric(Y)) %>% 
-  na.omit %>%
-  st_as_sf(coords = c("X", "Y"), crs = 4326, agr = "constant") %>%
-  st_transform('ESRI:102271') %>% 
-  distinct() %>%
-  .[fishnet,]
-
-assault_clipped23 <- st_intersection(assault23, chicagoBoundary)
-
-```
 
 ```{r, include = FALSE}
 assault23 <- 
@@ -1010,7 +974,7 @@ assault_risk_sf_kfold <-
   dplyr::select(label,Risk_Category, assaultCount)
 ```
 
-We don't do quite as well because we don't have very many features, but still pretty good.
+The overall prediction is good.
 
 ```{r fig.width=10}
 
@@ -1029,6 +993,8 @@ rbind(assault_KDE_sf, assault_risk_sf_kfold, assault_risk_sf) %>%
   theme_void()
 
 ```
+
+The kernel density model edges out both risk prediction model for highest risk areas. However, the risk prediction model does a better job in capturing assault incidents in lower-risk areas that the kernel density model had ignored.
 
 ```{r}
 rbind(assault_KDE_sf, assault_risk_sf_kfold, assault_risk_sf) %>%
@@ -1052,3 +1018,10 @@ rbind(assault_KDE_sf, assault_risk_sf_kfold, assault_risk_sf) %>%
       theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
 
 ```
+
+### Summary
+This algorithm does a good job in doing predictions but I don't recommend it to be put into production.The main reason is that predicting for police activity is controversial and will also deviate from what is expected.  
+
+There are still places where this model can be further improved. For example, some of the independent variables are not in the same year as the crime data because the Chicago data portal doesn't have the most up-to-date datasets.
+
+
