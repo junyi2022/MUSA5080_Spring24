@@ -58,7 +58,7 @@ Which cluster solution would you choose?
 data_scaled<- scale(cltdata[2:10])
 distance <- get_dist(data_scaled)
 fviz_dist(distance, gradient = list(low = "#00AFBB", mid = "white", high = "#FC4E07")) ##Not all that useful, but gives a sense of what we are going to try to cluster in the next steps.
-set.seed(123)
+set.seed(123) # because initial point is random, need seed to always have the same start points
 k2 <- kmeans(data_scaled, centers = 2, nstart = 25)
 k3 <- kmeans(data_scaled, centers = 3, nstart = 25)
 k4 <- kmeans(data_scaled, centers = 4, nstart = 25)
