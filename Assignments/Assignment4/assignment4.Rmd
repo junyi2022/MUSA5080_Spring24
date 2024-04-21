@@ -1,0 +1,488 @@
+---
+title: "Georgia Recidivism Prediction"
+author: "Junyi Yang, Ziyi Guo, Jiewen Hu"
+date: "Apirl, 2024"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: flatly
+    code_folding: hide
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  cache = TRUE
+)
+
+options(scipen=10000000)
+
+library(tidyverse)
+library(kableExtra)
+library(caret)
+library(knitr) 
+library(pscl)
+library(plotROC)
+library(pROC)
+library(lubridate)
+library(RSocrata)
+
+palette5 <- c("#5c6e6c","#a6b7aa","#d2a96a","#d39d87","#bb7154")
+palette4 <- c("#5c6e6c","#a6b7aa","#d2a96a","#bb7154")
+palette2 <- c("#5c6e6c","#bb7154")
+
+
+# Read and process burglaries data
+Recidivism <- 
+  read.socrata("https://data.ojp.usdoj.gov/Courts/NIJ-s-Recidivism-Challenge-Full-Dataset/ynf5-u8nk/") %>% 
+  na.omit()  # Remove rows with missing values
+```
+
+## Introduction
+This project aims to build a machine learning model for recidivism prediction in Georgia using *NIJ's Recidivism Challenge Full Dataset* in 2021 by Georgia Department of Community Supervision and Georgia Crime Information Center from the *Office of Justice Programs Portal*. This project will also include the analysis of the performance of the model and whether it will overpredit recidivism in certain social groups. 
+
+## Data Exploration
+
+### The trade-off between sensitivity and specificity
+
+In recidivism prediction, sensitivity prioritizes correctly identifying individuals who will reoffend, potentially leading to more false positives. This might allocate resources to low-risk individuals. On the other hand, specificity prioritizes correctly identifying individuals who won't reoffend, which could result in more false negatives, allowing high-risk individuals to go undetected.    
+
+The tradeoff of recidivism prediction involves balancing resources and the risk of misclassification. If the model prioritizes sensitivity, more innocent people are going to be unfairly monitored or retained in prison, which limits individual rights, increases social and economic costs, and questions the justice of the current legal system. If the model prioritizes specificity, more individuals with a risk of recidivism are going to be released, which increases the safety concerns in the community, causes social unrest, and increases the money and efforts needed for recidivism those people in the future but reduces unfair treatments.
+
+### Variables Examination
+
+The first part of this project focuses on examing available variables in the dataset. Firstly, we specify the outcome variable (recidivism within 3 years) to be a binary variable: 1 means recidivism observed and 0 means no recidivism.
+
+```{r add_feature}
+# filter the crime data under 3 years
+
+Recidivism <- Recidivism %>%
+  mutate(Recidivism_numeric = ifelse(recidivism_within_3years == "true", 1, 0))
+# glimpse(Recidivism)
+```
+
+
+#### Continuous variables
+There are 8 continuous variables in the dataset (shown below). The bar chart below divides the data into two groups (recidivism within 3 years and no recidivism) and calculates the average value for each variable.
+
+```{r exploratory_continuous, fig.height=5, fig.width=6.2}
+
+Recidivism %>%
+  dplyr::select(recidivism_within_3years, jobs_per_year, percent_days_employed, supervision_risk_score_first, avg_days_per_drugtest, drugtests_thc_positive, drugtests_cocaine_positive, drugtests_meth_positive, drugtests_other_positive, residence_puma) %>%
+  gather(Variable, value, -recidivism_within_3years) %>%
+    ggplot(aes(recidivism_within_3years, value, fill=recidivism_within_3years)) + 
+      geom_bar(position = "dodge", stat = "summary", fun = "mean") + 
+      facet_wrap(~Variable, scales = "free", ncol = 3) +
+      scale_fill_manual(values = palette2) +
+      labs(x="Recidivism within 3 years", y="Value", 
+           title = "Feature associations with the likelihood of recidivism within 3 years",
+           subtitle = "(Continous outcomes)") +
+      theme_minimal() + theme(legend.position = "none")
+
+```
+
+The line chart below contains the same 8 continuous variables but focuses on the their distribution. Only three of them show a significant distribution difference between the recidivism and no recidivism group.
+
+```{r exploratory_continuous_density, fig.width=8, message=FALSE, warning=FALSE}
+
+Recidivism %>%
+    dplyr::select(recidivism_within_3years, jobs_per_year, percent_days_employed, supervision_risk_score_first, avg_days_per_drugtest, drugtests_thc_positive, drugtests_cocaine_positive, drugtests_meth_positive, drugtests_other_positive, residence_puma) %>%
+    gather(Variable, value, -recidivism_within_3years) %>%
+    ggplot() + 
+    geom_density(aes(value, color=recidivism_within_3years), fill = "transparent", linewidth = 0.55) + 
+    facet_wrap(~Variable, scales = "free", ncol = 3) +
+    scale_colour_manual(values = palette2, name = "Recidivism") +
+    labs(x="Value", y="Density",
+         title = "Feature Distribution with the likelihood of recidivism within 3 years",
+         subtitle = "(Continous outcomes)") +
+      theme_minimal()
+
+```
+
+#### Categorical variables
+
+```{r exploratory_binary, fig.height=8, fig.width=10, message=FALSE, warning=FALSE}
+Recidivism %>%
+    dplyr::select(recidivism_within_3years, gender,race, age_at_release, gang_affiliated, supervision_level_first, education_level, education_level, dependents, prison_offense, prison_years, prior_arrest_episodes, prior_conviction_episodes, residence_changes) %>%
+    gather(Variable, value, -recidivism_within_3years) %>%
+    count(Variable, value, recidivism_within_3years) %>%
+      ggplot(., aes(value, n, fill = recidivism_within_3years)) +   
+        geom_bar(position = "dodge", stat="identity") +
+        facet_wrap(~Variable, scales="free") +
+        scale_fill_manual(values = palette2) +
+        labs(x="recidivism_within_3years", y="Value",
+             title = "Feature associations with the likelihood of recidivism within 3 years",
+             subtitle = "Categorical features") +
+        theme_minimal() +
+        theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "none")
+```
+
+## Create A Logistic Regression Model
+
+The original dataset is first split into 50% train dataset and 50% test dataset. Firstly, have an overview of model's coefficient.
+
+```{r run_model}
+
+set.seed(3456)
+trainIndex <- createDataPartition(Recidivism$recidivism_within_3years, p = .50,
+                                  list = FALSE,
+                                  times = 1)
+RecidivismTrain <- Recidivism[ trainIndex,]
+RecidivismTest  <- Recidivism[-trainIndex,]
+
+
+RecidivismModel <- glm(Recidivism_numeric ~ .,
+                  data=RecidivismTrain %>% 
+                    dplyr::select(Recidivism_numeric,jobs_per_year,percent_days_employed, supervision_risk_score_first, prison_years, condition_cog_ed,condition_mh_sa, condition_other, gang_affiliated,prior_arrest_episodes_violent, prior_arrest_episodes_property, violations, violations_instruction, violations_failtoreport, violations_1, delinquency_reports,program_attendances, program_unexcusedabsences, residence_changes,  prior_arrest_episodes_drug,prior_arrest_episodes,prior_revocations_parole,prior_revocations_probation, avg_days_per_drugtest,drugtests_thc_positive,drugtests_cocaine_positive,drugtests_meth_positive,drugtests_other_positive,gender,race, age_at_release, residence_puma,education_level, dependents, prison_offense),
+                  family="binomial" (link="logit"))
+
+Recidivism_sum <- summary(RecidivismModel)
+
+coefficients_table <- as.data.frame(Recidivism_sum$coefficients)
+
+coefficients_table$significance <- ifelse(coefficients_table$`Pr(>|z|)` < 0.001, '***',
+                                         ifelse(coefficients_table$`Pr(>|z|)` < 0.01, '**',
+                                                ifelse(coefficients_table$`Pr(>|z|)` < 0.05, '*',
+                                                       ifelse(coefficients_table$`Pr(>|z|)` < 0.1, '.', ''))))
+
+coefficients_table$p_value <- paste0(round(coefficients_table$`Pr(>|z|)`, digits = 3), coefficients_table$significance)
+
+coefficients_table %>%
+  select(-significance, -`Pr(>|z|)`) %>% 
+  kable(align = "r") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))  %>%
+  footnote(general_title = "\n", general = "Table 1")
+```
+
+Fitting model for pseudo r2
+
+```{r include=FALSE}
+# fitting null model for pseudo-r2
+RecidivismModel_pseudor2 <- pR2(RecidivismModel)
+```
+
+```{r fit_metrics, fig.width=4, message=FALSE, warning=FALSE}
+
+RecidivismModel_pseudor2_df <- data.frame(metric = names(RecidivismModel_pseudor2), value = round(as.numeric(RecidivismModel_pseudor2), digit=3)) %>%
+  t()
+
+colnames(RecidivismModel_pseudor2_df) <- as.character(RecidivismModel_pseudor2_df[1, ])  # Set column names to values in the first row
+RecidivismModel_pseudor2_df <- RecidivismModel_pseudor2_df[-1, , drop = FALSE]  # Remove the first row
+
+RecidivismModel_pseudor2_df %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))  %>%
+  footnote(general_title = "\n", general = "Table 2")
+
+```
+
+The result metrics above indicate the model's performance in predicting recidivism. The negative log-likelihood (llh) and G2 statistic demonstrate the model's fit, with lower llh values and higher G2 values indicating better fit compared to the null model. The McFadden pseudo R2 and r2ML/r2CU values assess the model's explanatory power, with higher values suggesting better performance. Overall, the model shows moderate explanatory power and improvement over the null model in predicting recidivism.
+
+## Make Predictions
+
+### Distribution of probabilities
+
+We create a dataframe of predictions for the 9738 observations in our test set, called `testProbs`.  
+
+These predictions are the estimated probabilities of recidivism. We can compare them to the observed outcome.
+
+
+```{r testProbs}
+
+testProbs <- data.frame(Outcome = as.factor(RecidivismTest$Recidivism_numeric),
+                        Probs = predict(RecidivismModel, RecidivismTest, type= "response"),
+                        gender = RecidivismTest$gender,
+                        race = RecidivismTest$race)
+
+ggplot(testProbs, aes(x = Probs, fill = as.factor(Outcome))) + 
+  geom_density() +
+  facet_grid(Outcome ~ .) +
+  scale_fill_manual(values = palette2) +
+  labs(x = "Probabilities", y = "Density of probabilities",
+       title = "Distribution of predicted probabilities by observed outcome",
+             subtitle = "no recidivism = 0, recidivism = 1") +
+      theme_minimal() +
+      theme(legend.position = "none")
+
+```
+
+In summary, the chart above shows a promising degree of prediction power in the model. However, the model is better at predicting recidivism than no recidivism. The probabilities associated with recidivism are more concentrated than the no recidivism, which are more spread out along the axis.
+
+
+### Predictability on different groups
+
+From above we see that the model's overall predictability is good. Currently, we choose probability > 0.5 as the thereshold for predicting recidivism. This section will compare the predictability results for different race or gender groups to see if the model will overpredict minority groups' probability.
+
+```{r }
+testProbs <- 
+  testProbs %>%
+  mutate(predOutcome  = as.factor(ifelse(testProbs$Probs > 0.5 , 1, 0))) 
+
+testProbs <- 
+  testProbs %>%
+  mutate(error = ifelse(testProbs$predOutcome == testProbs$Outcome, 0, 1))
+  
+
+race_difference <- testProbs %>% 
+  group_by(race, gender) %>%
+  summarize(total_error = sum(error),
+            total_sample = n()) %>%
+  mutate(percent_error = round(total_error / total_sample, digit=3)) 
+
+race_difference %>% 
+  kable(col.name=c("Race", 'Gender','Number of Error Predictions','Number of Samples','Error Rate')) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), position = "left")  %>%
+  footnote(general_title = "\n", general = "Table 3")
+```
+
+From the table above we can see that our model do not have a strong preference on certain groups. The percent error for each group are similar, but black male and white female have a slightly higher error rate than other groups.
+
+### Confusion Matrix
+Each threshold (e.g. a probability above which a prediction is "recidivism" and below which is "no recidivism") has it's own rate of error. These errors can be classified in four ways for a binary model.
+
+A "confusion matrix" for the threshold of 50% shows us the rate at which we got True Positives (aka Sensitivity), False Positives, True Negatives (aka Specificity) and False Negatives for that threshold.
+
+```{r confusion_matrix}
+cm <- caret::confusionMatrix(testProbs$predOutcome, testProbs$Outcome, 
+                       positive = "1")
+
+mosaicplot(cm$table, color=palette2, main = "Mosaic Plot for Confusion Matrix",
+           xlab = "Prediction", ylab = "Reference")
+
+# print(cm)
+
+cm_df <- as.data.frame(cm$table)
+cm_df %>% 
+  kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))  %>%
+  footnote(general_title = "\n", general = "Table 4")
+
+cm_df2 <- as.data.frame(round(cm$byClass, digit = 3)) %>% 
+  head(5) %>%
+  t()
+
+rownames(cm_df2) <- NULL
+
+cm_df2 %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))  %>%
+  footnote(general_title = "\n", general = "Table 5")
+
+```
+
+
+Sensitivity measures the model's ability to accurately detect true positive cases, specifically recidivism in this context. Our model has a sensitivity score of 0.785, or 78.5%, which means that around 78.5% of individuals who actually experienced recidivism were correctly identified by the model. This high sensitivity rate highlights the model's effectiveness in recognizing individuals at risk of recidivism.
+
+On the other hand, specificity gauges the model's capability to correctly identify true negative cases, indicating individuals who do not experience recidivism. With a specificity of 0.609, or 60.9%, the model accurately identified approximately 60.9% of individuals who did not recidivate. Notably, the specificity rate is lower than sensitivity, suggesting that the model may be less proficient at identifying individuals who will not experience recidivism.
+
+In conclusion, the model is more effective at identifying individuals who will recidivate than identify individuals who will not recidivate, which is the same trend as what we observed in the distribution chart above..
+
+
+### ROC Curve
+
+The ROC curve, gives us another visual "goodness of fit" metric.The y=x line shows where our prediction rates for positives and negatives are no better than a random event. On the other hand, if ROC curve is too "square", we will probably over fit the model.
+
+```{r auc, message = FALSE, warning = FALSE}
+auc(testProbs$Outcome, testProbs$Probs)
+```
+An area under the curve (AUC) of our model is ${area}, which means that there is a 77.47% chance that the model will be able to distinguish between a randomly chosen positive instance (one that actually did recidivate) and a negative instance (one that did not recidivate).
+
+```{r roc_curve, warning = FALSE, message = FALSE}
+ggplot(testProbs, aes(d = as.numeric(Outcome), m = Probs)) +
+  geom_roc(n.cuts = 50, labels = FALSE, colour = "#bb7154") +
+  style_roc(theme = theme_grey) +
+  geom_abline(slope = 1, intercept = 0, size = 1, color = '#5c6e6c') +
+  labs(title = "ROC Curve") +
+      theme_minimal()
+```
+
+The curve rises steeply towards the upper-left corner of the plot, which shows that the model has a strong true positive rate before accruing false positives.
+
+## Cross validation
+
+We run 100-fold cross validation and look at the ROC's area under the curve (AUC), Sensitivity, and Specificity across these series of predicitons.
+
+```{r, include=FALSE}
+ctrl <- trainControl(method = "cv", number = 100, classProbs=TRUE, summaryFunction=twoClassSummary)
+
+cvFit <- train(recidivism_within_3years ~ .,
+                  data=Recidivism %>% 
+                  dplyr::select(recidivism_within_3years,jobs_per_year,percent_days_employed, supervision_risk_score_first, prison_years, condition_cog_ed,condition_mh_sa, condition_other, gang_affiliated,prior_arrest_episodes_violent, prior_arrest_episodes_property, violations, violations_instruction, violations_failtoreport, violations_1, delinquency_reports,program_attendances, program_unexcusedabsences, residence_changes,  prior_arrest_episodes_drug,prior_arrest_episodes,prior_revocations_parole,prior_revocations_probation, avg_days_per_drugtest,drugtests_thc_positive,drugtests_cocaine_positive,drugtests_meth_positive,drugtests_other_positive,gender,race, age_at_release, residence_puma,education_level, dependents, prison_offense), 
+                method="glm", family="binomial",
+                metric="ROC", trControl = ctrl)
+
+cvFit
+```
+
+```{r, eval = FALSE}
+ctrl <- trainControl(method = "cv", number = 100, classProbs=TRUE, summaryFunction=twoClassSummary)
+
+cvFit <- train(recidivism_within_3years ~ .,
+                  data=Recidivism %>% 
+                  dplyr::select(recidivism_within_3years,jobs_per_year,percent_days_employed, supervision_risk_score_first, prison_years, condition_cog_ed,condition_mh_sa, condition_other, gang_affiliated,prior_arrest_episodes_violent, prior_arrest_episodes_property, violations, violations_instruction, violations_failtoreport, violations_1, delinquency_reports,program_attendances, program_unexcusedabsences, residence_changes,  prior_arrest_episodes_drug,prior_arrest_episodes,prior_revocations_parole,prior_revocations_probation, avg_days_per_drugtest,drugtests_thc_positive,drugtests_cocaine_positive,drugtests_meth_positive,drugtests_other_positive,gender,race, age_at_release, residence_puma,education_level, dependents, prison_offense), 
+                method="glm", family="binomial",
+                metric="ROC", trControl = ctrl)
+
+cvFit
+```
+
+```{r cv}
+
+cvFit_df <- as.data.frame(cvFit$results)[, 2:7]
+cvFit_df %>% 
+  kable(col.name=c('ROC', 'Sensitivity', 'Specificity', 'ROC SD', 'Sensitivity SD', 'Specificity SD')) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))  %>%
+  footnote(general_title = "\n", general = "Table 6")
+```
+
+The Area Under the Curve (AUC) from the cross-validated model is about 0.7755, which is slightly higher than the previously mentioned AUC of 0.7747. This suggests that the model's ability to distinguish between the positive and negative classes is consistent and robust across different subsets of the data.  
+
+The sensitivity obtained through cross-validation appears to be lower than the previously reported value of 0.785. This discrepancy suggests that, when evaluated across multiple folds, the model's accuracy in identifying true positive cases—instances of recidivism—may be somewhat diminished compared to the initial assessment. Conversely, the specificity observed in cross-validation surpasses the earlier figure of 0.609. This indicates an enhanced capacity of the model to accurately discern true negative cases—instances of non-recidivism—when subjected to the cross-validation process.   
+
+In contrast, cross-validated results offer a more dependable evaluation of the model's efficacy by mitigating bias stemming from potential overfitting to a singular test set. Disparities between the cross-validated sensitivity and specificity and their initial counterparts suggest that the model may lean towards conservative predictions for positive cases (recidivism). Nevertheless, it demonstrates robustness in correctly identifying negative cases (non-recidivism) across diverse subsamples of the dataset.   
+
+```{r goodness_metrics, message = FALSE, warning = FALSE}
+dplyr::select(cvFit$resample, -Resample) %>%
+  gather(metric, value) %>%
+  left_join(gather(cvFit$results[2:4], metric, mean)) %>%
+  ggplot(aes(value)) + 
+    geom_histogram(bins=35, fill = "#bb7154") +
+    facet_wrap(~metric) +
+    geom_vline(aes(xintercept = mean), colour = "#5c6e6c", linetype = 2, size = 0.9) +
+    scale_x_continuous(limits = c(0, 1)) +
+    labs(x="Goodness of Fit", y="Count", title="CV Goodness of Fit Metrics",
+         subtitle = "Across-fold mean reprented as dotted lines") +
+      theme_minimal() + theme(legend.position = "none")
+
+```
+
+The above chart shows that the ROC, sensitivity, and specificity are all concentrated around the across-fold mean, which indicates good model performance.
+
+## Cost-Benefit Calculation
+
+It is pretty hard to have a cost-benefit calculation on recidivism rate. Therefore, this section only includes some very general economic calculations. From the [USAFacts](https://usafacts.org/articles/how-much-do-states-spend-on-prisons/), States spent an average of $45771 per prisoner per year to keep one individual in the prison. From the [CSG Justice Center](https://csgjusticecenter.org/publications/the-cost-of-recidivism/), the cost of recidivism is about $41450.78 (over 8 billion to incarcerate more than 193,000 people) per individual per year.   
+
+Based on these two values, we define the economic cost as below:  
+* *True Negative:* $0 * Count (No need to spend money on keeping someone in prison or costs associated with recidivism)  
+* *True Positive:* $45771 * Count (Spend money on keeping someone in prison)  
+* *False Negative:* $41450.78 * Count (Spend money on costs associated with recidivism)  
+* *False Positive:* $45771 * Count (Spend money on keeping someone in prison)  
+
+
+```{r cost_benefit}
+cost_benefit_table <-
+   testProbs %>%
+      count(predOutcome, Outcome) %>%
+      summarize(True_Negative = sum(n[predOutcome==0 & Outcome==0]),
+                True_Positive = sum(n[predOutcome==1 & Outcome==1]),
+                False_Negative = sum(n[predOutcome==0 & Outcome==1]),
+                False_Positive = sum(n[predOutcome==1 & Outcome==0])) %>%
+       gather(Variable, Count) %>%
+       mutate(Revenue =
+               ifelse(Variable == "True_Negative", Count * 0,
+               ifelse(Variable == "True_Positive",((-45771) * Count),
+               ifelse(Variable == "False_Negative", (-41450.78) * Count,
+               ifelse(Variable == "False_Positive", (-45771) * Count, 0))))) %>%
+    bind_cols(data.frame(Description = c(
+              "We correctly predicted no recidivism",
+              "We correctly predicted recidivism",
+              "We predicted no recidivism but get recidivism",
+              "We predicted recidivism but get no recidivism")))
+
+cost_benefit_table %>% 
+  kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))  %>%
+  footnote(general_title = "\n", general = "Table 7")
+```
+
+## Optimize Thresholds
+
+Previously we chose 0.5 as the line above which a prediction is classified as a "recidivism". We can then look at the confusion matrices for each threshold and choose the one that returns the most revenue.  
+
+```{r}
+x = .01
+all_threshold <- data.frame()
+
+while (x <= 1) {
+threshold<- 
+  testProbs %>%
+  mutate(predOutcome  = as.factor(ifelse(testProbs$Probs > x , 1, 0))) %>% 
+  count(predOutcome, Outcome) %>% 
+  summarize(True_Negative = sum(n[predOutcome==0 & Outcome==0]),
+                True_Positive = sum(n[predOutcome==1 & Outcome==1]),
+                False_Negative = sum(n[predOutcome==0 & Outcome==1]),
+                False_Positive = sum(n[predOutcome==1 & Outcome==0])) %>% 
+  gather(Variable, Count) %>% 
+  mutate(threshold = x )
+
+all_threshold <- rbind(all_threshold, threshold)
+ x <- x + .01
+}
+
+all_threshold %>% 
+  ggplot() +
+  geom_line(aes(x = threshold, y=Count, color = Variable), size = 1.5, linetype = 1) + 
+  scale_color_manual(values = palette4, guide=FALSE) + 
+  facet_wrap(~Variable) + 
+  labs(title = "Confusion Metric Outcomes for Each Threshold") +
+  xlab("Threshold") + 
+  theme_minimal()
+
+```
+
+
+The code below bakes in our cost-revenue calculations. From this chart we can see that the optimized thereshold for our model is about 0.9.   
+
+```{r iterate_threshold}
+iterateThresholds <- function(data) {
+  x = .01
+  all_prediction <- data.frame()
+  while (x <= 1) {
+  
+  this_prediction <-
+      testProbs %>%
+      mutate(predOutcome = ifelse(Probs > x, 1, 0)) %>%
+      count(predOutcome, Outcome) %>%
+      summarize(True_Negative = sum(n[predOutcome==0 & Outcome==0]),
+                True_Positive = sum(n[predOutcome==1 & Outcome==1]),
+                False_Negative = sum(n[predOutcome==0 & Outcome==1]),
+                False_Positive = sum(n[predOutcome==1 & Outcome==0])) %>%
+     gather(Variable, Count) %>%
+     mutate(Revenue =
+               ifelse(Variable == "True_Negative", Count * 0,
+               ifelse(Variable == "True_Positive",((-45771) * Count),
+               ifelse(Variable == "False_Negative", (-41450.78) * Count,
+               ifelse(Variable == "False_Positive", (-45771) * Count, 0)))),
+            Threshold = x)
+  
+  all_prediction <- rbind(all_prediction, this_prediction)
+  x <- x + .01
+  }
+return(all_prediction)
+}
+
+whichThreshold <- iterateThresholds(testProbs2)
+
+whichThreshold_revenue <- 
+whichThreshold %>% 
+    group_by(Threshold) %>% 
+    summarize(Revenue = sum(Revenue))
+
+  ggplot(whichThreshold_revenue)+
+  geom_line(aes(x = Threshold, y = Revenue), linewidth = 1.5, color = "#bb7154")+
+  geom_vline(xintercept =  pull(arrange(whichThreshold_revenue, -Revenue)[1,1]), color = "#5c6e6c", linewidth = 1)+
+    labs(title = "Model Revenues By Threshold For Test Sample",
+         subtitle = "Vertical Line Denotes Optimal Threshold") +
+      theme_minimal()
+
+```
+
+## Conclusion
+In summary our model performs well and do not have strong preference on certain race or gender groups. It is better at predicting sensitivity than specificity without doing cross validation, and after doing cross validation, it is better at predicting specificity than sensitivity. When considering revenue, focusing on specificity will minimize the total cost.  
+  
